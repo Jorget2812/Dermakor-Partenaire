@@ -68,7 +68,7 @@ export interface Partner {
   location: string; // e.g., "Lausanne • VD"
   tier: UserTier;
   joinDate: string;
-  status: 'ACTIVE' | 'PENDING' | 'INACTIVE';
+  status: 'ACTIVE' | 'PENDING' | 'INACTIVE' | 'APPROVED' | 'REJECTED';
   monthlySpend: number;
 }
 
