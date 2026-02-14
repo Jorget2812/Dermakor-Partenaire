@@ -712,6 +712,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
               <li className="hover:text-derma-gold cursor-pointer transition-colors">Catalogue Produits</li>
               <li className="hover:text-derma-gold cursor-pointer transition-colors">KRX Academy</li>
               <li onClick={onNavigateToLogin} className="hover:text-derma-gold cursor-pointer transition-colors">Espace Membre</li>
+              <li onClick={() => navigate('/admin/login')} className="hover:text-derma-gold cursor-pointer transition-colors pt-2 border-t border-white/5 mt-2 opacity-50 hover:opacity-100">Accès Admin</li>
             </ul>
           </div>
 
