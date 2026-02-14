@@ -28,9 +28,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchProfile = async (userId: string, email: string) => {
-        console.log('🔍 Starting fetchProfile for:', email);
         try {
-            // 0. Master Admin Check (Case insensitive and trimmed)
             const masterAdmins = [
                 'jorge@dermakorswiss.com',
                 'torresjorge2812@gmail.com',
@@ -41,7 +39,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const normalizedEmail = (email || '').trim().toLowerCase();
 
             if (normalizedEmail && masterAdmins.some(admin => admin.toLowerCase() === normalizedEmail)) {
-                console.log('✅ Master admin detected:', normalizedEmail);
                 setUser({
                     id: userId,
                     name: 'Jorge Torres (Master Admin)',
@@ -56,7 +53,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 return;
             }
 
-            console.log('📊 Querying partner_users table...');
             const { data, error } = await supabase
                 .from('partner_users')
                 .select('*')
@@ -64,7 +60,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 .single();
 
             if (error) {
-                console.log('⚠️ Not in partner_users, checking profiles...');
                 const { data: adminData, error: adminError } = await supabase
                     .from('profiles')
                     .select('*')
@@ -109,14 +104,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     monthlyGoal: 800
                 });
             }
-        } catch (error: any) {
-            const isAbortError = error.name === 'AbortError' || (error.message && error.message.includes('aborted'));
-            if (isAbortError) {
-                console.warn('⚠️ Profile fetch aborted:', userId);
-            } else {
-                console.error('💥 CRITICAL ERROR fetching profile:', error);
-                setUser(null);
-            }
+        } catch (err: any) {
+            setUser(null);
         } finally {
             setIsLoading(false);
         }
@@ -126,13 +115,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const init = async () => {
             try {
                 const { data: { session }, error } = await supabase.auth.getSession();
-                if (error) throw error;
+                if (error) {
+                    setIsLoading(false);
+                    return;
+                }
+
                 setSession(session);
                 if (session?.user) {
                     await fetchProfile(session.user.id, session.user.email || '');
+                } else {
+                    setIsLoading(false);
                 }
             } catch (err) {
-                console.error('Critical Auth Init Error:', err);
+                setIsLoading(false);
             } finally {
                 setIsLoading(false);
             }
