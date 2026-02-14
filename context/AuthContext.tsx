@@ -63,8 +63,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 .eq('id', userId)
                 .single();
 
-            console.log('Partner query result:', { data, error });
-
             if (error) {
                 console.log('⚠️ Not in partner_users, checking profiles...');
                 const { data: adminData, error: adminError } = await supabase
@@ -72,8 +70,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     .select('*')
                     .eq('id', userId)
                     .single();
-
-                console.log('Profiles query result:', { adminData, adminError });
 
                 if (adminData && !adminError) {
                     const displayName = adminData.full_name ||
@@ -83,7 +79,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     const isAdminRole = ['admin', 'directeur', 'manager', 'vendeur'].includes(adminData.role?.toLowerCase());
 
                     if (isAdminRole) {
-                        console.log('✅ Admin role confirmed');
                         setUser({
                             id: userId,
                             name: displayName,
@@ -96,15 +91,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                             monthlyGoal: 0
                         });
                     } else {
-                        console.error('❌ No authorized CRM role');
                         setUser(null);
                     }
                 } else {
-                    console.error('❌ Profile not found in either table');
                     setUser(null);
                 }
             } else {
-                console.log('✅ Partner user found');
                 setUser({
                     id: data.id,
                     name: data.contact_name || 'Socio',
@@ -119,18 +111,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         } catch (error: any) {
             const isAbortError = error.name === 'AbortError' || (error.message && error.message.includes('aborted'));
-
             if (isAbortError) {
-                console.warn('⚠️ Profile fetch aborted (harmless):', userId);
-                // Don't set user to null or isLoading to false if it's just an abort
-                // as another request is likely taking over or React is re-rendering.
-                return;
+                console.warn('⚠️ Profile fetch aborted:', userId);
+            } else {
+                console.error('💥 CRITICAL ERROR fetching profile:', error);
+                setUser(null);
             }
-
-            console.error('💥 CRITICAL ERROR fetching profile:', error);
-            setUser(null);
         } finally {
-            console.log('🏁 Setting isLoading to false');
             setIsLoading(false);
         }
     };
@@ -140,15 +127,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             try {
                 const { data: { session }, error } = await supabase.auth.getSession();
                 if (error) throw error;
-
                 setSession(session);
                 if (session?.user) {
                     await fetchProfile(session.user.id, session.user.email || '');
-                } else {
-                    setIsLoading(false);
                 }
             } catch (err) {
                 console.error('Critical Auth Init Error:', err);
+            } finally {
                 setIsLoading(false);
             }
         };
