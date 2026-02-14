@@ -60,10 +60,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
                 if (adminData && !adminError) {
                     // Map CRM roles: 'directeur' and 'vendeur' are both ADMINS in the portal
-                    // but we can distinguish them here if needed.
+                    const displayName = adminData.full_name ||
+                        `${adminData.first_name || ''} ${adminData.last_name || ''}`.trim() ||
+                        'Admin';
+
                     setUser({
                         id: userId,
-                        name: `${adminData.first_name} ${adminData.last_name}`.trim() || 'Admin',
+                        name: displayName,
                         email: email,
                         role: 'ADMIN',
                         status: 'active',
