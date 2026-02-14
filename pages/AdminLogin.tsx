@@ -20,9 +20,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToPortal }) => {
     setError(null);
 
     try {
-      if (!email.includes('@dermakor.ch')) {
-        throw new Error('Accès réservé aux administrateurs @dermakor.ch');
-      }
+      // Domain check removed as requested
 
       const { error: authError } = await supabase.auth.signInWithPassword({
         email,

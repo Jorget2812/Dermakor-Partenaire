@@ -80,9 +80,16 @@ const Login: React.FC = () => {
                 .single();
 
             if (profileError) {
-                console.error('Profile fetch error:', profileError);
-                // If profile not found but auth succeeded, maybe it's an admin?
-                if (id.includes('@dermakor.ch')) {
+                console.log('Partner profile not found, checking if admin...');
+                // Checking if admin via profiles table is handled in AuthContext, 
+                // but we need to know if we should redirect to admin dashboard here.
+                const { data: adminData } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', authData.user.id)
+                    .single();
+
+                if (adminData) {
                     navigate('/admin/dashboard');
                     return;
                 }

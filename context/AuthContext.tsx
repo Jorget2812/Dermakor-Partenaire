@@ -35,10 +35,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 .single();
 
             if (error) {
-                if (email.includes('@dermakor.ch')) {
+                // Check if it's the master admin by email
+                if (email.toLowerCase() === 'jorge@dermakorswiss.com') {
                     setUser({
                         id: userId,
-                        name: 'Admin',
+                        name: 'Jorge (Admin)',
+                        email: email,
+                        role: 'ADMIN',
+                        status: 'active',
+                        tier: UserTier.PREMIUM,
+                        currentSpend: 0,
+                        monthlyGoal: 0
+                    });
+                    setIsLoading(false);
+                    return;
+                }
+
+                // If not in partner_users, check the CRM profiles table
+                const { data: adminData, error: adminError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
+
+                if (adminData && !adminError) {
+                    // Map CRM roles: 'directeur' and 'vendeur' are both ADMINS in the portal
+                    // but we can distinguish them here if needed.
+                    setUser({
+                        id: userId,
+                        name: `${adminData.first_name} ${adminData.last_name}`.trim() || 'Admin',
                         email: email,
                         role: 'ADMIN',
                         status: 'active',
@@ -47,7 +72,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         monthlyGoal: 0
                     });
                 } else {
-                    console.error('Profile not found', error);
+                    console.error('Profile not found in either table');
                     setUser(null);
                 }
             } else {
