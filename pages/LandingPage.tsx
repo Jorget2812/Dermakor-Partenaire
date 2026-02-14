@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Star,
   Users,
@@ -24,6 +25,7 @@ interface LandingPageProps {
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
+  const navigate = useNavigate();
   // --- STATE ---
   const [selectedTier, setSelectedTier] = useState<'STANDARD' | 'PREMIUM' | null>(null);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
@@ -727,6 +729,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
           <div className="flex gap-4 mt-4 md:mt-0">
             <span className="hover:text-white cursor-pointer">Conditions Générales</span>
             <span className="hover:text-white cursor-pointer">Politique de Confidentialité</span>
+            <span onClick={() => navigate('/admin/login')} className="hover:text-derma-gold cursor-pointer opacity-50 hover:opacity-100 transition-all ml-4 border-l border-white/10 pl-4">Admin</span>
           </div>
         </div>
       </footer>
