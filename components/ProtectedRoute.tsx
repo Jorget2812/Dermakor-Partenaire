@@ -62,6 +62,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
 
     if (!user) {
         // Authenticated but no profile found - logout and go to landing
+        console.log('🛑 ProtectedRoute: Authenticated but no user profile found:', { isAuthenticated, isLoading });
         return (
             <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-[#FAFAF8]">
                 <div className="max-w-md p-8 bg-white border border-gray-100 rounded-xl shadow-premium">

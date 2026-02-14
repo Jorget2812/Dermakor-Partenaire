@@ -29,13 +29,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const fetchProfile = async (userId: string, email: string) => {
         console.log('🔍 Starting fetchProfile for:', email);
         try {
-            const masterAdmins = ['jorge@dermakorswiss.com', 'torresjorge2812@gmail.com', 'jorgetorres2812@gmail.com'];
-            if (email && masterAdmins.includes(email.toLowerCase())) {
-                console.log('✅ Master admin detected');
+            // 0. Master Admin Check (Case insensitive and trimmed)
+            const masterAdmins = [
+                'jorge@dermakorswiss.com',
+                'torresjorge2812@gmail.com',
+                'jorgetorres2812@gmail.com',
+                'jorge.torres@dermakor.ch'
+            ];
+
+            const normalizedEmail = (email || '').trim().toLowerCase();
+
+            if (normalizedEmail && masterAdmins.some(admin => admin.toLowerCase() === normalizedEmail)) {
+                console.log('✅ Master admin detected:', normalizedEmail);
                 setUser({
                     id: userId,
-                    name: 'Jorge Torres (Admin)',
-                    email: email,
+                    name: 'Jorge Torres (Master Admin)',
+                    email: normalizedEmail,
                     role: 'ADMIN',
                     status: 'active',
                     tier: UserTier.PREMIUM,
@@ -105,8 +114,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     monthlyGoal: 800
                 });
             }
-        } catch (error) {
-            console.error('💥 CRITICAL ERROR:', error);
+        } catch (error: any) {
+            const isAbortError = error.name === 'AbortError' || (error.message && error.message.includes('aborted'));
+
+            if (isAbortError) {
+                console.warn('⚠️ Profile fetch aborted (harmless):', userId);
+                // Don't set user to null or isLoading to false if it's just an abort
+                // as another request is likely taking over or React is re-rendering.
+                return;
+            }
+
+            console.error('💥 CRITICAL ERROR fetching profile:', error);
             setUser(null);
         } finally {
             console.log('🏁 Setting isLoading to false');
