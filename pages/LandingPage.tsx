@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Star, 
-  MapPin, 
-  CheckCircle, 
-  Shield, 
-  Package, 
-  GraduationCap, 
-  Zap, 
-  Truck, 
-  Users, 
-  ChevronDown, 
-  ChevronUp, 
-  ArrowRight, 
+import {
+  Star,
+  MapPin,
+  CheckCircle,
+  Shield,
+  Package,
+  GraduationCap,
+  Zap,
+  Truck,
+  Users,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
   PlayCircle,
   Award,
   BookOpen,
@@ -27,12 +27,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
   const [selectedTier, setSelectedTier] = useState<'STANDARD' | 'PREMIUM' | null>(null);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [isVisible, setIsVisible] = useState(false);
-  
+
   // Trigger entry animations on mount
   useEffect(() => {
     setIsVisible(true);
   }, []);
-  
+
   // Form State
   const [formData, setFormData] = useState({
     nomInstitut: '',
@@ -68,9 +68,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
 
   return (
     <div className="bg-[#FAFAF8] font-sans text-derma-black overflow-x-hidden">
-      
+
       {/* 1. HEADER / NAVIGATION */}
-      <nav 
+      <nav
         className={`fixed top-0 w-full z-50 bg-white/95 backdrop-blur-md border-b border-derma-border transition-all duration-700 ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}
       >
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -87,13 +87,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
               <span className="hover:text-derma-black cursor-pointer transition-colors">DE</span>
               <span className="hover:text-derma-black cursor-pointer transition-colors">IT</span>
             </div>
-            <button 
+            <button
               onClick={onNavigateToLogin}
               className="text-sm font-medium hover:text-derma-gold transition-colors"
             >
               Espace Partenaire
             </button>
-            <button 
+            <button
               onClick={scrollToForm}
               className="bg-derma-black text-white px-6 py-2.5 rounded text-xs uppercase tracking-widest hover:bg-derma-gold transition-colors"
             >
@@ -106,23 +106,23 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
       {/* 2. HERO SECTION */}
       <section className="pt-32 pb-20 px-6 max-w-7xl mx-auto min-h-[90vh] flex flex-col justify-center">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div 
+          <div
             className={`space-y-8 transition-all duration-1000 delay-100 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}
           >
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-derma-gold/10 text-derma-gold rounded-full text-xs font-bold uppercase tracking-wider border border-derma-gold/20">
               <Star size={12} fill="currentColor" /> Distributeur Exclusif depuis 2025
             </div>
-            
+
             <h1 className="font-oswald text-5xl md:text-7xl font-light uppercase leading-[1.1]">
               Rejoignez les +40 instituts d'élite qui font confiance à <span className="text-derma-gold">KRX</span>
             </h1>
-            
+
             <p className="text-lg text-gray-500 max-w-xl font-light leading-relaxed">
               Transformez votre institut avec plus de 130 produits de haute technologie. Formation certifiante, protocoles exclusifs et support Suisse dédié.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4">
-              <button 
+              <button
                 onClick={scrollToForm}
                 className="bg-derma-gold hover:bg-[#B08D55] text-white px-8 py-4 text-sm uppercase tracking-widest font-semibold rounded shadow-premium hover:shadow-premium-hover transition-all transform hover:-translate-y-1"
               >
@@ -150,24 +150,24 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
             </div>
           </div>
 
-          <div 
+          <div
             className={`relative h-[500px] md:h-[600px] w-full rounded-lg overflow-hidden shadow-2xl transition-all duration-1000 delay-300 ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
           >
-             {/* Mock Hero Image */}
-             <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300">
-               <img 
-                 src="https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?q=80&w=2070&auto=format&fit=crop" 
-                 alt="KRX Products" 
-                 className="w-full h-full object-cover opacity-90"
-               />
-               <div className="absolute inset-0 bg-black/10"></div>
-             </div>
-             
-             {/* Floating Badge */}
-             <div className="absolute bottom-8 left-8 bg-white/90 backdrop-blur p-4 rounded border-l-4 border-derma-gold shadow-lg max-w-xs animate-slide-up">
-               <p className="font-oswald text-lg text-derma-black">"Une révolution pour mon institut."</p>
-               <p className="text-xs text-gray-500 mt-1">Sophie M., Partenaire Premium à Genève</p>
-             </div>
+            {/* Mock Hero Image */}
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300">
+              <img
+                src="https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?q=80&w=2070&auto=format&fit=crop"
+                alt="KRX Products"
+                className="w-full h-full object-cover opacity-90"
+              />
+              <div className="absolute inset-0 bg-black/10"></div>
+            </div>
+
+            {/* Floating Badge */}
+            <div className="absolute bottom-8 left-8 bg-white/90 backdrop-blur p-4 rounded border-l-4 border-derma-gold shadow-lg max-w-xs animate-slide-up">
+              <p className="font-oswald text-lg text-derma-black">"Une révolution pour mon institut."</p>
+              <p className="text-xs text-gray-500 mt-1">Sophie M., Partenaire Premium à Genève</p>
+            </div>
           </div>
         </div>
       </section>
@@ -177,7 +177,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
         <div className="max-w-7xl mx-auto px-6 text-center">
           <h2 className="font-oswald text-2xl text-derma-black mb-2 uppercase">+40 instituts nous font déjà confiance</h2>
           <p className="text-gray-400 text-sm mb-10">Dans toute la Suisse Romande et Alémanique</p>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-6 opacity-60">
             {['Genève', 'Lausanne', 'Fribourg', 'Neuchâtel', 'Vaud', 'Valais', 'Berne', 'Zurich'].map((city) => (
               <div key={city} className="flex flex-col items-center gap-2 group cursor-default">
@@ -197,9 +197,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-          
+
           {/* STANDARD */}
-          <div 
+          <div
             className={`bg-white rounded-xl border p-8 transition-all duration-300 relative overflow-hidden cursor-pointer hover:-translate-y-1 ${selectedTier === 'STANDARD' ? 'border-derma-black shadow-xl' : 'border-gray-200 shadow-sm hover:shadow-md'}`}
             onClick={() => setSelectedTier('STANDARD')}
           >
@@ -207,27 +207,27 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
               <h3 className="font-oswald text-2xl text-derma-black mb-2">STANDARD</h3>
               <p className="text-sm text-gray-500">L'essentiel pour démarrer</p>
             </div>
-            
+
             <div className="mb-8 pb-8 border-b border-gray-100">
-               <div className="flex items-baseline gap-2 mb-1">
-                 <span className="text-3xl font-oswald text-derma-black">CHF 800</span>
-                 <span className="text-xs text-gray-400 uppercase">1ère Commande</span>
-               </div>
-               <div className="inline-block bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded mb-4">
-                 🎁 Livraison OFFERTE
-               </div>
-               <p className="text-sm font-medium text-derma-black">Puis CHF 300 / mois</p>
-               <p className="text-xs text-gray-400">Engagement 6 mois</p>
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-3xl font-oswald text-derma-black">CHF 800</span>
+                <span className="text-xs text-gray-400 uppercase">1ère Commande</span>
+              </div>
+              <div className="inline-block bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded mb-4">
+                🎁 Livraison OFFERTE
+              </div>
+              <p className="text-sm font-medium text-derma-black">Puis CHF 300 / mois</p>
+              <p className="text-xs text-gray-400">Engagement 6 mois</p>
             </div>
 
             <ul className="space-y-4 mb-8">
               {[
-                "Accès catalogue +130 produits",
-                "Tarifs professionnels",
-                "Protocoles à vie",
-                "Plateforme formation",
+                "Accès catalogue Homme Care uniquement",
+                "Tarifs professionnels Homme Care",
+                "Protocoles Homme Care à vie",
+                "Formation de base",
                 "Support technique standard",
-                "Certificat KRX"
+                "Certificat KRX Homme Care"
               ].map(feat => (
                 <li key={feat} className="flex items-start gap-3 text-sm text-gray-600">
                   <CheckCircle size={16} className="text-green-500 mt-0.5 shrink-0" />
@@ -242,7 +242,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
           </div>
 
           {/* PREMIUM */}
-          <div 
+          <div
             className={`bg-white rounded-xl border-2 p-8 transition-all duration-300 relative overflow-hidden cursor-pointer hover:-translate-y-2 ${selectedTier === 'PREMIUM' ? 'border-derma-gold shadow-premium' : 'border-derma-gold/30 shadow-lg'}`}
             onClick={() => setSelectedTier('PREMIUM')}
           >
@@ -254,28 +254,30 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
               <h3 className="font-oswald text-2xl text-derma-black mb-2 flex items-center gap-2">PREMIUM <span className="text-derma-gold">⭐</span></h3>
               <p className="text-sm text-gray-500">L'expérience élite complète</p>
             </div>
-            
+
             <div className="mb-8 pb-8 border-b border-dashed border-derma-gold/30">
-               <div className="flex items-baseline gap-2 mb-1">
-                 <span className="text-3xl font-oswald text-derma-gold">CHF 1,500</span>
-                 <span className="text-xs text-gray-400 uppercase">1ère Commande</span>
-               </div>
-               <div className="inline-block bg-derma-gold/10 text-derma-gold text-[10px] font-bold px-2 py-0.5 rounded mb-4">
-                 🎁 Livraison OFFERTE
-               </div>
-               <p className="text-sm font-medium text-derma-black">Puis CHF 800 / mois</p>
-               <p className="text-xs text-gray-400">Engagement 6 mois</p>
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-3xl font-oswald text-derma-gold">CHF 1,500</span>
+                <span className="text-xs text-gray-400 uppercase">1ère Commande</span>
+              </div>
+              <div className="inline-block bg-derma-gold/10 text-derma-gold text-[10px] font-bold px-2 py-0.5 rounded mb-4">
+                🎁 Livraison OFFERTE
+              </div>
+              <p className="text-sm font-medium text-derma-black">Puis CHF 800 / mois</p>
+              <p className="text-xs text-gray-400">Engagement 6 mois</p>
             </div>
 
             <ul className="space-y-4 mb-8">
               {[
-                "Tout le pack Standard",
-                "Tarifs Premium (-10% suppl.)",
+                "Accès catalogue complet +130 produits KRX",
+                "Tarifs Premium (-10% supplémentaire)",
+                "Tous les protocoles à vie",
                 "Masterclass exclusives",
                 "Conseiller VIP dédié",
                 "Priorité sur le stock",
                 "Nouveautés en avant-première",
-                "Échantillons exclusifs"
+                "Échantillons exclusifs",
+                "Certificat KRX complet"
               ].map(feat => (
                 <li key={feat} className="flex items-start gap-3 text-sm text-gray-700 font-medium">
                   <CheckCircle size={16} className="text-derma-gold mt-0.5 shrink-0" />
@@ -295,28 +297,28 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
       <section className="bg-[#FAFAF8] py-20 px-6 border-t border-gray-200">
         <div className="max-w-7xl mx-auto">
           <h2 className="font-oswald text-3xl text-center mb-16 uppercase text-derma-black">Pourquoi +40 instituts choisissent DermaKor Swiss</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-             {[
-               { icon: Shield, title: "Distributeur Exclusif", text: "Seul distributeur KRX officiel en Suisse depuis 2025. Authenticité garantie." },
-               { icon: Package, title: "Catalogue Complet", text: "+130 références professionnelles: ampoules, peelings, masques, sérums..." },
-               { icon: GraduationCap, title: "Formation Certifiante", text: "Masterclass régulières, Academy 24/7 et certificat reconnu." },
-               { icon: Zap, title: "Stock Local Suisse", text: "Disponibilité immédiate garantie. Pas d'attente d'importation." },
-               { icon: Truck, title: "Livraison Express", text: "24-48h partout en Suisse. 1ère livraison toujours offerte." },
-               { icon: Users, title: "Support en Français", text: "Équipe Suisse romande dédiée disponible pour vous accompagner." },
-             ].map((usp, i) => (
-               <div 
-                 key={i}
-                 className="bg-white p-8 rounded-lg border border-gray-100 hover:border-derma-gold/50 transition-colors shadow-sm group animate-fade-in"
-                 style={{ animationDelay: `${i * 100}ms` }}
-               >
-                 <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-derma-black mb-6 group-hover:bg-derma-gold group-hover:text-white transition-colors">
-                   <usp.icon size={24} />
-                 </div>
-                 <h3 className="font-oswald text-lg mb-3">{usp.title}</h3>
-                 <p className="text-sm text-gray-500 leading-relaxed">{usp.text}</p>
-               </div>
-             ))}
+            {[
+              { icon: Shield, title: "Distributeur Exclusif", text: "Seul distributeur KRX officiel en Suisse depuis 2025. Authenticité garantie." },
+              { icon: Package, title: "Catalogue Complet", text: "+130 références professionnelles: ampoules, peelings, masques, sérums..." },
+              { icon: GraduationCap, title: "Formation Certifiante", text: "Masterclass régulières, Academy 24/7 et certificat reconnu." },
+              { icon: Zap, title: "Stock Local Suisse", text: "Disponibilité immédiate garantie. Pas d'attente d'importation." },
+              { icon: Truck, title: "Livraison Express", text: "24-48h partout en Suisse. 1ère livraison toujours offerte." },
+              { icon: Users, title: "Support en Français", text: "Équipe Suisse romande dédiée disponible pour vous accompagner." },
+            ].map((usp, i) => (
+              <div
+                key={i}
+                className="bg-white p-8 rounded-lg border border-gray-100 hover:border-derma-gold/50 transition-colors shadow-sm group animate-fade-in"
+                style={{ animationDelay: `${i * 100}ms` }}
+              >
+                <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-derma-black mb-6 group-hover:bg-derma-gold group-hover:text-white transition-colors">
+                  <usp.icon size={24} />
+                </div>
+                <h3 className="font-oswald text-lg mb-3">{usp.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">{usp.text}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -354,47 +356,47 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
 
       {/* 7. ACADEMY HIGHLIGHT */}
       <section className="py-20 px-6 bg-[#1A1A1A] text-white">
-         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <h2 className="font-oswald text-3xl md:text-5xl uppercase leading-tight mb-6">
-                KRX Academy <br/><span className="text-derma-gold">Formation Incluse</span>
-              </h2>
-              <p className="text-gray-400 text-lg font-light mb-8">
-                Ne vous contentez pas d'acheter des produits. Maîtrisez les protocoles qui feront la réputation de votre institut.
-              </p>
-              
-              <div className="space-y-6">
-                <div className="flex gap-4">
-                   <div className="p-3 bg-white/5 rounded h-fit"><PlayCircle className="text-derma-gold" /></div>
-                   <div>
-                     <h3 className="font-oswald text-xl mb-1">Protocoles Vidéo HD</h3>
-                     <p className="text-sm text-gray-400">Accès 24/7 à +50 tutoriels détaillés.</p>
-                   </div>
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div>
+            <h2 className="font-oswald text-3xl md:text-5xl uppercase leading-tight mb-6">
+              KRX Academy <br /><span className="text-derma-gold">Formation Incluse</span>
+            </h2>
+            <p className="text-gray-400 text-lg font-light mb-8">
+              Ne vous contentez pas d'acheter des produits. Maîtrisez les protocoles qui feront la réputation de votre institut.
+            </p>
+
+            <div className="space-y-6">
+              <div className="flex gap-4">
+                <div className="p-3 bg-white/5 rounded h-fit"><PlayCircle className="text-derma-gold" /></div>
+                <div>
+                  <h3 className="font-oswald text-xl mb-1">Protocoles Vidéo HD</h3>
+                  <p className="text-sm text-gray-400">Accès 24/7 à +50 tutoriels détaillés.</p>
                 </div>
-                <div className="flex gap-4">
-                   <div className="p-3 bg-white/5 rounded h-fit"><Users className="text-derma-gold" /></div>
-                   <div>
-                     <h3 className="font-oswald text-xl mb-1">Masterclass Live</h3>
-                     <p className="text-sm text-gray-400">Sessions Q&A avec nos experts formateurs.</p>
-                   </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="p-3 bg-white/5 rounded h-fit"><Users className="text-derma-gold" /></div>
+                <div>
+                  <h3 className="font-oswald text-xl mb-1">Masterclass Live</h3>
+                  <p className="text-sm text-gray-400">Sessions Q&A avec nos experts formateurs.</p>
                 </div>
-                <div className="flex gap-4">
-                   <div className="p-3 bg-white/5 rounded h-fit"><Award className="text-derma-gold" /></div>
-                   <div>
-                     <h3 className="font-oswald text-xl mb-1">Certificat Officiel</h3>
-                     <p className="text-sm text-gray-400">Badge "Certified KRX Professional" pour votre vitrine.</p>
-                   </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="p-3 bg-white/5 rounded h-fit"><Award className="text-derma-gold" /></div>
+                <div>
+                  <h3 className="font-oswald text-xl mb-1">Certificat Officiel</h3>
+                  <p className="text-sm text-gray-400">Badge "Certified KRX Professional" pour votre vitrine.</p>
                 </div>
               </div>
             </div>
-            
-            <div className="relative border border-white/10 rounded-lg p-4 bg-white/5 backdrop-blur">
-                <div className="aspect-video bg-gray-800 rounded flex items-center justify-center relative overflow-hidden group cursor-pointer">
-                    <img src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=2070&auto=format&fit=crop" alt="Academy Preview" className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700"/>
-                    <PlayCircle size={64} className="text-white relative z-10" />
-                </div>
+          </div>
+
+          <div className="relative border border-white/10 rounded-lg p-4 bg-white/5 backdrop-blur">
+            <div className="aspect-video bg-gray-800 rounded flex items-center justify-center relative overflow-hidden group cursor-pointer">
+              <img src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=2070&auto=format&fit=crop" alt="Academy Preview" className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" />
+              <PlayCircle size={64} className="text-white relative z-10" />
             </div>
-         </div>
+          </div>
+        </div>
       </section>
 
       {/* 8. FORM SECTION */}
@@ -407,7 +409,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
 
           <div className="p-8 md:p-12">
             {formStatus === 'SUCCESS' ? (
-              <div 
+              <div
                 className="text-center py-12 animate-fade-in"
               >
                 <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -424,20 +426,20 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Nom de l'institut *</label>
-                      <input 
-                        required 
-                        type="text" 
+                      <input
+                        required
+                        type="text"
                         value={formData.nomInstitut}
-                        onChange={e => setFormData({...formData, nomInstitut: e.target.value})}
+                        onChange={e => setFormData({ ...formData, nomInstitut: e.target.value })}
                         className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-derma-gold focus:ring-1 focus:ring-derma-gold outline-none"
                       />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Type *</label>
-                      <select 
+                      <select
                         className="w-full border border-gray-300 rounded p-2.5 text-sm bg-white"
                         value={formData.typeEtablissement}
-                        onChange={e => setFormData({...formData, typeEtablissement: e.target.value})}
+                        onChange={e => setFormData({ ...formData, typeEtablissement: e.target.value })}
                       >
                         <option value="institut">Institut de beauté</option>
                         <option value="spa">Spa / Wellness</option>
@@ -454,41 +456,41 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Nom et Prénom *</label>
-                      <input 
-                        required 
-                        type="text" 
+                      <input
+                        required
+                        type="text"
                         value={formData.contactName}
-                        onChange={e => setFormData({...formData, contactName: e.target.value})}
+                        onChange={e => setFormData({ ...formData, contactName: e.target.value })}
                         className="w-full border border-gray-300 rounded p-2.5 text-sm outline-none focus:border-derma-gold"
                       />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Email Pro *</label>
-                      <input 
-                        required 
-                        type="email" 
+                      <input
+                        required
+                        type="email"
                         value={formData.email}
-                        onChange={e => setFormData({...formData, email: e.target.value})}
+                        onChange={e => setFormData({ ...formData, email: e.target.value })}
                         className="w-full border border-gray-300 rounded p-2.5 text-sm outline-none focus:border-derma-gold"
                       />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone *</label>
-                      <input 
-                        required 
-                        type="tel" 
+                      <input
+                        required
+                        type="tel"
                         placeholder="+41"
                         value={formData.phone}
-                        onChange={e => setFormData({...formData, phone: e.target.value})}
+                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
                         className="w-full border border-gray-300 rounded p-2.5 text-sm outline-none focus:border-derma-gold"
                       />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Canton *</label>
-                      <select 
+                      <select
                         className="w-full border border-gray-300 rounded p-2.5 text-sm bg-white"
                         value={formData.canton}
-                        onChange={e => setFormData({...formData, canton: e.target.value})}
+                        onChange={e => setFormData({ ...formData, canton: e.target.value })}
                       >
                         <option value="Geneve">Genève</option>
                         <option value="Vaud">Vaud</option>
@@ -513,36 +515,36 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
                       { val: 'indecis', label: 'Je souhaite être conseillé(e)' }
                     ].map(opt => (
                       <label key={opt.val} className="flex items-center gap-3 p-3 border border-gray-200 rounded cursor-pointer hover:bg-gray-50 transition-colors">
-                         <input 
-                           type="radio" 
-                           name="prog" 
-                           value={opt.val}
-                           checked={formData.programme === opt.val}
-                           onChange={e => setFormData({...formData, programme: e.target.value})}
-                           className="text-derma-gold focus:ring-derma-gold"
-                         />
-                         <span className="text-sm text-derma-black">{opt.label}</span>
+                        <input
+                          type="radio"
+                          name="prog"
+                          value={opt.val}
+                          checked={formData.programme === opt.val}
+                          onChange={e => setFormData({ ...formData, programme: e.target.value })}
+                          className="text-derma-gold focus:ring-derma-gold"
+                        />
+                        <span className="text-sm text-derma-black">{opt.label}</span>
                       </label>
                     ))}
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3 pt-4">
-                   <input 
-                     required 
-                     type="checkbox" 
-                     id="conditions"
-                     checked={formData.conditions}
-                     onChange={e => setFormData({...formData, conditions: e.target.checked})}
-                     className="mt-1"
-                   />
-                   <label htmlFor="conditions" className="text-xs text-gray-500">
-                     J'accepte d'être contacté(e) par DermaKor Swiss pour discuter du partenariat. Je comprends que ceci est une demande de contact et non un engagement contractuel immédiat.
-                   </label>
+                  <input
+                    required
+                    type="checkbox"
+                    id="conditions"
+                    checked={formData.conditions}
+                    onChange={e => setFormData({ ...formData, conditions: e.target.checked })}
+                    className="mt-1"
+                  />
+                  <label htmlFor="conditions" className="text-xs text-gray-500">
+                    J'accepte d'être contacté(e) par DermaKor Swiss pour discuter du partenariat. Je comprends que ceci est une demande de contact et non un engagement contractuel immédiat.
+                  </label>
                 </div>
 
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={formStatus === 'LOADING'}
                   className="w-full bg-derma-gold hover:bg-[#B08D55] text-white py-4 rounded text-sm uppercase tracking-widest font-bold shadow-lg transition-all flex justify-center items-center gap-2"
                 >
@@ -568,7 +570,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
               { q: "Puis-je changer de programme ?", a: "Absolument. Vous pouvez passer du programme Standard au Premium à tout moment pour bénéficier des avantages supérieurs." }
             ].map((item, i) => (
               <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <button 
+                <button
                   onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}
                   className="w-full flex justify-between items-center p-5 text-left hover:bg-gray-50"
                 >
@@ -593,7 +595,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
           <p className="text-xl font-light text-gray-300 mb-10">
             Rejoignez l'élite de l'esthétique Suisse avant la fin du mois et recevez un <span className="text-derma-gold font-bold">Kit Découverte (valeur CHF 150)</span> en plus de la livraison offerte.
           </p>
-          <button 
+          <button
             onClick={scrollToForm}
             className="bg-white text-derma-black hover:bg-derma-gold hover:text-white px-10 py-4 rounded text-sm font-bold uppercase tracking-widest transition-all shadow-2xl"
           >
@@ -609,12 +611,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
             <h3 className="font-oswald text-white text-lg uppercase tracking-widest mb-4">DermaKor Swiss</h3>
             <p className="max-w-sm mb-6">Distributeur exclusif KRX Aesthetics pour la Suisse. Nous fournissons aux professionnels de l'esthétique les outils, produits et formations nécessaires pour exceller.</p>
             <div className="flex gap-4">
-               {/* Social icons placeholders */}
-               <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center hover:bg-derma-gold hover:text-white transition-colors cursor-pointer">IG</div>
-               <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center hover:bg-derma-gold hover:text-white transition-colors cursor-pointer">LI</div>
+              {/* Social icons placeholders */}
+              <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center hover:bg-derma-gold hover:text-white transition-colors cursor-pointer">IG</div>
+              <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center hover:bg-derma-gold hover:text-white transition-colors cursor-pointer">LI</div>
             </div>
           </div>
-          
+
           <div>
             <h4 className="font-bold text-white uppercase tracking-wider mb-4">Navigation</h4>
             <ul className="space-y-2">
