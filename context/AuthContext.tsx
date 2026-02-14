@@ -105,6 +105,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 });
             }
         } catch (err: any) {
+            console.error('AuthContext: fetchProfile error:', err);
             setUser(null);
         } finally {
             setIsLoading(false);
@@ -112,10 +113,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     useEffect(() => {
+        // Failsafe: prevent infinite loading
+        const timer = setTimeout(() => {
+            if (isLoading) {
+                console.warn('AuthContext: Failsafe triggered after 3s');
+                setIsLoading(false);
+            }
+        }, 3000);
+
         const init = async () => {
             try {
                 const { data: { session }, error } = await supabase.auth.getSession();
                 if (error) {
+                    console.error('AuthContext: Session fetch error:', error);
                     setIsLoading(false);
                     return;
                 }
@@ -127,6 +137,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     setIsLoading(false);
                 }
             } catch (err) {
+                console.error('AuthContext: Init exception:', err);
                 setIsLoading(false);
             } finally {
                 setIsLoading(false);
@@ -144,7 +155,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            clearTimeout(timer);
+            subscription.unsubscribe();
+        };
     }, []);
 
     const logout = useCallback(async () => {
