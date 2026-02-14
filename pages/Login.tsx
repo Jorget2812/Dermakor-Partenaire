@@ -55,6 +55,7 @@ const Login: React.FC = () => {
         setError(null);
 
         try {
+            console.log('Attempting login for:', id);
             // 1. Supabase Auth Sign In
             const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
                 email: id, // User enters email in the ID field
@@ -62,11 +63,14 @@ const Login: React.FC = () => {
             });
 
             if (authError) {
+                console.error('Auth error:', authError);
                 if (authError.message === 'Invalid login credentials') {
                     throw new Error('Identifiants invalides. Veuillez vérifier votre email et mot de passe.');
                 }
                 throw authError;
             }
+
+            console.log('Auth success, fetching profile for:', authData.user.id);
 
             // 2. Check Partner Status
             const { data: profileData, error: profileError } = await supabase
@@ -75,7 +79,17 @@ const Login: React.FC = () => {
                 .eq('id', authData.user.id)
                 .single();
 
-            if (profileError) throw profileError;
+            if (profileError) {
+                console.error('Profile fetch error:', profileError);
+                // If profile not found but auth succeeded, maybe it's an admin?
+                if (id.includes('@dermakor.ch')) {
+                    navigate('/admin/dashboard');
+                    return;
+                }
+                throw new Error('Profil introuvable. Veuillez contacter le support.');
+            }
+
+            console.log('Profile status:', profileData.status);
 
             if (profileData.status === 'pending') {
                 await supabase.auth.signOut();
@@ -87,11 +101,11 @@ const Login: React.FC = () => {
                 throw new Error('Votre demande d\'accès a été refusée. Veuillez nous contacter pour plus d\'informations.');
             }
 
-            // Success! AuthContext will pick up the session change via onAuthStateChange
+            // Success! 
             navigate('/dashboard');
 
         } catch (err: any) {
-            console.error('Login error:', err);
+            console.error('Login catch error:', err);
             setError(err.message || 'Une erreur est survenue lors de la connexion.');
         } finally {
             setIsLoading(false);

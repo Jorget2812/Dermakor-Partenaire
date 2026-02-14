@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
@@ -24,13 +24,14 @@ import AdminSettings from './pages/AdminSettings';
 
 const AppContent: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/" element={<LandingPage onNavigateToLogin={() => { }} />} />
+      <Route path="/" element={<LandingPage onNavigateToLogin={() => navigate('/login')} />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/admin/login" element={<AdminLogin onBackToPortal={() => { }} />} />
+      <Route path="/admin/login" element={<AdminLogin onBackToPortal={() => navigate('/')} />} />
 
       {/* Partner Routes */}
       <Route
