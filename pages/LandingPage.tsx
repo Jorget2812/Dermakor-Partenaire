@@ -1,22 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Star,
-  MapPin,
-  CheckCircle,
-  Shield,
-  Package,
-  GraduationCap,
-  Zap,
-  Truck,
-  Users,
-  ChevronDown,
-  ChevronUp,
-  ArrowRight,
-  PlayCircle,
-  Award,
-  BookOpen,
-  Check
-} from 'lucide-react';
+import { supabase } from '../utils/supabase';
 
 interface LandingPageProps {
   onNavigateToLogin: () => void;
@@ -49,18 +31,69 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
     programme: 'indecis',
     conditions: false
   });
-  const [formStatus, setFormStatus] = useState<'IDLE' | 'LOADING' | 'SUCCESS'>('IDLE');
+  const [formStatus, setFormStatus] = useState<'IDLE' | 'LOADING' | 'SUCCESS' | 'ERROR'>('IDLE');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormStatus('LOADING');
-    // Simulate API call
-    setTimeout(() => {
+    setErrorMessage('');
+
+    try {
+      // Split name into first and last if possible
+      const names = formData.contactName.trim().split(' ');
+      const firstName = names[0] || '';
+      const lastName = names.slice(1).join(' ') || '';
+
+      const { error } = await supabase
+        .from('prospects')
+        .insert([
+          {
+            company_name: formData.nomInstitut,
+            canton: formData.canton,
+            contact_first_name: firstName,
+            contact_last_name: lastName || firstName, // Fallback if only one name
+            contact_email: formData.email,
+            contact_phone: formData.phone,
+            company_type: formData.typeEtablissement.toUpperCase(),
+            source: 'LANDING_PAGE',
+            pipeline_stage: 'nouveau',
+            lead_score: 0,
+            is_premium_candidate: formData.programme === 'premium'
+          }
+        ]);
+
+      if (error) throw error;
+
       setFormStatus('SUCCESS');
-      // Reset form after 3s
+
+      // Reset form fields
+      setFormData({
+        nomInstitut: '',
+        typeEtablissement: 'institut',
+        tva: '',
+        contactName: '',
+        fonction: 'gerante',
+        email: '',
+        phone: '',
+        rue: '',
+        npa: '',
+        ville: '',
+        canton: 'Geneve',
+        programme: 'indecis',
+        conditions: false
+      });
+
+      // Reset status after 5s
       setTimeout(() => setFormStatus('IDLE'), 5000);
-    }, 2000);
+
+    } catch (err: any) {
+      console.error('Error saving prospect:', err);
+      setFormStatus('ERROR');
+      setErrorMessage(err.message || 'Une erreur est survenue lors de l\'envoi du formulaire.');
+    }
   };
+
 
   const scrollToForm = () => {
     document.getElementById('formulaire')?.scrollIntoView({ behavior: 'smooth' });
@@ -416,10 +449,15 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
                   <Check size={40} />
                 </div>
                 <h3 className="font-oswald text-2xl text-derma-black mb-2">Demande Envoyée !</h3>
-                <p className="text-gray-500">Merci {formData.contactName}. Un conseiller DermaKor vous contactera très bientôt.</p>
+                <p className="text-gray-500">Merci. Un conseiller DermaKor vous contactera muy pronto.</p>
               </div>
             ) : (
               <form onSubmit={handleFormSubmit} className="space-y-8">
+                {formStatus === 'ERROR' && (
+                  <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+                    <p className="text-sm text-red-700">{errorMessage}</p>
+                  </div>
+                )}
                 {/* 1. Institut */}
                 <div className="space-y-4">
                   <h3 className="text-xs font-bold uppercase tracking-widest text-derma-gold border-b border-gray-100 pb-2">Informations Institut</h3>
