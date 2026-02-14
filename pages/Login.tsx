@@ -352,6 +352,12 @@ const Login: React.FC = () => {
                                     {selectedTier === UserTier.PREMIUM ? <CheckCircle2 size={12} /> : <ShieldCheck size={12} />}
                                     {selectedTier === UserTier.PREMIUM ? t('login_secure_prem') : t('login_secure_std')}
                                 </div>
+                                <button
+                                    onClick={() => navigate('/admin/login')}
+                                    className="mt-4 text-[9px] text-gray-300 hover:text-derma-gold transition-colors opacity-10 hover:opacity-100 uppercase tracking-tighter"
+                                >
+                                    Gestion
+                                </button>
                             </div>
                         </div>
                     </div>

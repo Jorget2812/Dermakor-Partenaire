@@ -712,7 +712,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
               <li className="hover:text-derma-gold cursor-pointer transition-colors">Catalogue Produits</li>
               <li className="hover:text-derma-gold cursor-pointer transition-colors">KRX Academy</li>
               <li onClick={onNavigateToLogin} className="hover:text-derma-gold cursor-pointer transition-colors">Espace Membre</li>
-              <li onClick={() => navigate('/admin/login')} className="hover:text-derma-gold cursor-pointer transition-colors pt-2 border-t border-white/5 mt-2 opacity-50 hover:opacity-100">Accès Admin</li>
             </ul>
           </div>
 
@@ -730,7 +729,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
           <div className="flex gap-4 mt-4 md:mt-0">
             <span className="hover:text-white cursor-pointer">Conditions Générales</span>
             <span className="hover:text-white cursor-pointer">Politique de Confidentialité</span>
-            <span onClick={() => navigate('/admin/login')} className="hover:text-derma-gold cursor-pointer opacity-50 hover:opacity-100 transition-all ml-4 border-l border-white/10 pl-4">Admin</span>
           </div>
         </div>
       </footer>
