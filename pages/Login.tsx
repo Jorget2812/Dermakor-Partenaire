@@ -304,7 +304,7 @@ const Login: React.FC = () => {
                                         type="text"
                                         value={id}
                                         onChange={(e) => setId(e.target.value)}
-                                        placeholder={selectedTier === UserTier.PREMIUM ? "CH-78XX-P" : "CH-78XX"}
+                                        placeholder="votre@email.com"
                                         className={`w-full bg-[#FAFAF8] border px-4 py-3.5 text-[#1A1A1A] font-sans text-[15px] rounded transition-all focus:outline-none placeholder-gray-300
                                     ${selectedTier === UserTier.PREMIUM
                                                 ? 'border-derma-border focus:border-derma-gold focus:ring-4 focus:ring-[#C0A76A]/10'
