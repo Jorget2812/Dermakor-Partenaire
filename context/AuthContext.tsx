@@ -59,21 +59,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     .single();
 
                 if (adminData && !adminError) {
-                    // Map CRM roles: 'directeur' and 'vendeur' are both ADMINS in the portal
+                    // Map CRM roles: 'admin', 'directeur', 'manager' and 'vendeur' are all ADMINS in the portal
                     const displayName = adminData.full_name ||
                         `${adminData.first_name || ''} ${adminData.last_name || ''}`.trim() ||
                         'Admin';
 
-                    setUser({
-                        id: userId,
-                        name: displayName,
-                        email: email,
-                        role: 'ADMIN',
-                        status: 'active',
-                        tier: UserTier.PREMIUM,
-                        currentSpend: 0,
-                        monthlyGoal: 0
-                    });
+                    const isAdminRole = ['admin', 'directeur', 'manager', 'vendeur'].includes(adminData.role?.toLowerCase());
+
+                    if (isAdminRole) {
+                        setUser({
+                            id: userId,
+                            name: displayName,
+                            email: email,
+                            role: 'ADMIN',
+                            status: 'active',
+                            tier: UserTier.PREMIUM,
+                            currentSpend: 0,
+                            monthlyGoal: 0
+                        });
+                    } else {
+                        console.error('User has no authorized CRM role for portal access');
+                        setUser(null);
+                    }
                 } else {
                     console.error('Profile not found in either table');
                     setUser(null);
