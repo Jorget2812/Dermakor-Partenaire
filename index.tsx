@@ -1,6 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import './index.css';
+console.log('Vite Env Check:', import.meta.env);
 import App from './App';
 
 const rootElement = document.getElementById('root');

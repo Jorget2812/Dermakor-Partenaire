@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#FAFAF8] text-[#1a1a1a] min-h-screen;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+.shadow-premium {
+  box-shadow: 0 8px 20px rgba(192, 167, 106, 0.08);
+}
+
+.shadow-premium-hover {
+  box-shadow: 0 16px 40px rgba(192, 167, 106, 0.2), 0 0 60px rgba(192, 167, 106, 0.1);
+}
+
+.shadow-standard {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+}
+
+.shadow-standard-hover {
+  box-shadow: 0 12px 24px rgba(44, 62, 80, 0.12);
+}
+
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  animation: shine 3s infinite;
+}
+
+@keyframes shine {
+  0% { left: -100%; }
+  20% { left: 100%; }
+  100% { left: 100%; }
+}

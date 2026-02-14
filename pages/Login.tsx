@@ -1,27 +1,45 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useLanguage } from '../context/LanguageContext';
+import React, { useState, useEffect } from 'react';
+import {
+    Building2,
+    Lock,
+    ArrowRight,
+    ArrowLeft,
+    CheckCircle2,
+    ShieldCheck,
+    Globe,
+    Star,
+    Loader2,
+    Check,
+    ChevronRight
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { Lock, ArrowRight, ArrowLeft, Check, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { UserTier, Language } from '../types';
+import { supabase } from '../utils/supabase';
+import { useLanguage } from '../context/LanguageContext';
 
 const Login: React.FC = () => {
     const { t, language, setLanguage } = useLanguage();
-    const { login } = useAuth();
+    const { isAuthenticated, logout } = useAuth();
     const navigate = useNavigate();
+
     const [step, setStep] = useState<1 | 2>(1);
     const [selectedTier, setSelectedTier] = useState<UserTier | null>(null);
     const [id, setId] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    // If already authenticated, redirect to dashboard
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate('/dashboard');
+        }
+    }, [isAuthenticated, navigate]);
 
     const handleTierSelect = (tier: UserTier) => {
         setSelectedTier(tier);
         setStep(2);
-        // Pre-fill suffix for visual aid
-        if (tier === UserTier.PREMIUM) {
-            setId(''); // Reset or set to placeholder-like value
-        }
     };
 
     const handleBack = () => {
@@ -31,26 +49,54 @@ const Login: React.FC = () => {
         setPassword('');
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
+        setError(null);
 
-        // Simulated auth check
-        setTimeout(() => {
-            login({
-                id: id || 'CH-7866',
-                name: 'Sophie Dubois',
-                instituteName: 'Institut Esthétique Léman',
-                tier: selectedTier || UserTier.STANDARD,
-                currentSpend: 2150,
-                monthlyGoal: selectedTier === UserTier.PREMIUM ? 8000 : 3000,
-                role: 'PARTENAIRE',
+        try {
+            // 1. Supabase Auth Sign In
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email: id, // User enters email in the ID field
+                password: password,
             });
-            setIsLoading(false);
-            navigate('/dashboard');
-        }, 1500);
-    };
 
+            if (authError) {
+                if (authError.message === 'Invalid login credentials') {
+                    throw new Error('Identifiants invalides. Veuillez vérifier votre email et mot de passe.');
+                }
+                throw authError;
+            }
+
+            // 2. Check Partner Status
+            const { data: profileData, error: profileError } = await supabase
+                .from('partner_users')
+                .select('status')
+                .eq('id', authData.user.id)
+                .single();
+
+            if (profileError) throw profileError;
+
+            if (profileData.status === 'pending') {
+                await supabase.auth.signOut();
+                throw new Error('Votre compte est en attente d\'approbation. Nous vous contacterons bientôt.');
+            }
+
+            if (profileData.status === 'rejected') {
+                await supabase.auth.signOut();
+                throw new Error('Votre demande d\'accès a été refusée. Veuillez nous contacter pour plus d\'informations.');
+            }
+
+            // Success! AuthContext will pick up the session change via onAuthStateChange
+            navigate('/dashboard');
+
+        } catch (err: any) {
+            console.error('Login error:', err);
+            setError(err.message || 'Une erreur est survenue lors de la connexion.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     // --- ICONS ---
     const BuildingIcon = () => (

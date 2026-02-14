@@ -1,3 +1,22 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Star,
+  Users,
+  GraduationCap,
+  BookOpen,
+  Award,
+  MapPin,
+  CheckCircle,
+  Shield,
+  Zap,
+  Package,
+  Truck,
+  PlayCircle,
+  Check,
+  ChevronUp,
+  ChevronDown,
+  X
+} from 'lucide-react';
 import { supabase } from '../utils/supabase';
 
 interface LandingPageProps {
@@ -23,6 +42,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
     contactName: '',
     fonction: 'gerante',
     email: '',
+    password: '',
     phone: '',
     rue: '',
     npa: '',
@@ -40,19 +60,47 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
     setErrorMessage('');
 
     try {
+      // 1. Supabase Auth SignUp
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (authError) throw authError;
+
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('Erreur lors de la création du compte auth.');
+
       // Split name into first and last if possible
       const names = formData.contactName.trim().split(' ');
       const firstName = names[0] || '';
       const lastName = names.slice(1).join(' ') || '';
 
-      const { error } = await supabase
+      // 2. Insert into partner_users (Pending)
+      const { error: profileError } = await supabase
+        .from('partner_users')
+        .insert([
+          {
+            id: userId,
+            email: formData.email,
+            company_name: formData.nomInstitut,
+            contact_name: formData.contactName,
+            phone: formData.phone,
+            status: 'pending'
+          }
+        ]);
+
+      if (profileError) throw profileError;
+
+      // 3. Insert into prospects (Legacy/Tracking)
+      const { error: prospectError } = await supabase
         .from('prospects')
         .insert([
           {
             company_name: formData.nomInstitut,
             canton: formData.canton,
             contact_first_name: firstName,
-            contact_last_name: lastName || firstName, // Fallback if only one name
+            contact_last_name: lastName || firstName,
             contact_email: formData.email,
             contact_phone: formData.phone,
             company_type: formData.typeEtablissement.toUpperCase(),
@@ -63,7 +111,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
           }
         ]);
 
-      if (error) throw error;
+      if (prospectError) throw prospectError;
 
       setFormStatus('SUCCESS');
 

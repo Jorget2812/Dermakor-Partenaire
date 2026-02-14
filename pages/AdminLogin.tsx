@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../utils/supabase';
 import { Lock, Shield, AlertTriangle } from 'lucide-react';
 
 interface AdminLoginProps {
@@ -8,30 +8,36 @@ interface AdminLoginProps {
 }
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToPortal }) => {
-  const { login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      login({
-        id: 'admin-1',
-        name: 'Jorge Admin',
-        instituteName: 'DermaKor HQ',
-        tier: 'PREMIUM' as any,
-        currentSpend: 0,
-        monthlyGoal: 0,
-        role: 'ADMIN',
-        email: email || 'jorge@dermakor.ch'
+    setError(null);
+
+    try {
+      if (!email.includes('@dermakor.ch')) {
+        throw new Error('Accès réservé aux administrateurs @dermakor.ch');
+      }
+
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      setIsLoading(false);
+
+      if (authError) throw authError;
+
       navigate('/admin/dashboard');
-    }, 1500);
+    } catch (err: any) {
+      console.error('Admin login error:', err);
+      setError(err.message || 'Erreur de connexion admin.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
 
@@ -50,6 +56,11 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToPortal }) => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+                <p className="text-xs text-red-700 font-medium">{error}</p>
+              </div>
+            )}
             <div>
               <label className="block text-[11px] font-medium uppercase tracking-[1px] text-[#6B6B6B] mb-2">Identifiant Administrateur</label>
               <input
