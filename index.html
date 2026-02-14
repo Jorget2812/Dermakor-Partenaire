@@ -12,6 +12,27 @@
     href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Inter:wght@300;400;500;600&family=Oswald:wght@300;400;500;600&display=swap"
     rel="stylesheet">
   <script>
+    // Universal Polyfills for legacy/Node-assuming libraries
+    window.process = {
+      env: { NODE_ENV: 'development' },
+      nextTick: function (fn) { setTimeout(fn, 0); }
+    };
+    window.global = window;
+
+    // Immediate debugging hook
+    window.onerror = function (msg, url, line, col, error) {
+      console.log('CRITICAL BOOT ERROR:', msg);
+      var root = document.getElementById('root');
+      if (root && root.innerHTML === '') {
+        root.innerHTML = '<div style="background:#800;color:white;padding:20px;font-family:sans-serif;">' +
+          '<h1>ERREUR CRITIQUE DE CHARGEMENT</h1>' +
+          '<p>' + msg + '</p>' +
+          '<pre>' + (error ? error.stack : "No stacktrace available") + '</pre>' +
+          '</div>';
+      }
+    };
+  </script>
+  <script>
     tailwind.config = {
       theme: {
         extend: {

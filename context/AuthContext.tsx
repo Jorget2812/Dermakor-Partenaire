@@ -28,6 +28,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const fetchProfile = async (userId: string, email: string) => {
         try {
+            // 0. Master Admin Check
+            const masterAdmins = ['jorge@dermakorswiss.com', 'torresjorge2812@gmail.com', 'jorgetorres2812@gmail.com'];
+            if (email && masterAdmins.includes(email.toLowerCase())) {
+                setUser({
+                    id: userId,
+                    name: 'Jorge Torres (Admin)',
+                    email: email,
+                    role: 'ADMIN',
+                    status: 'active',
+                    tier: UserTier.PREMIUM,
+                    currentSpend: 0,
+                    monthlyGoal: 0
+                });
+                return;
+            }
+
             const { data, error } = await supabase
                 .from('partner_users')
                 .select('*')
@@ -35,23 +51,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 .single();
 
             if (error) {
-                // Check if it's the master admin by email
-                if (email.toLowerCase() === 'jorge@dermakorswiss.com') {
-                    setUser({
-                        id: userId,
-                        name: 'Jorge (Admin)',
-                        email: email,
-                        role: 'ADMIN',
-                        status: 'active',
-                        tier: UserTier.PREMIUM,
-                        currentSpend: 0,
-                        monthlyGoal: 0
-                    });
-                    setIsLoading(false);
-                    return;
-                }
-
-                // If not in partner_users, check the CRM profiles table
                 const { data: adminData, error: adminError } = await supabase
                     .from('profiles')
                     .select('*')
@@ -59,7 +58,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     .single();
 
                 if (adminData && !adminError) {
-                    // Map CRM roles: 'admin', 'directeur', 'manager' and 'vendeur' are all ADMINS in the portal
                     const displayName = adminData.full_name ||
                         `${adminData.first_name || ''} ${adminData.last_name || ''}`.trim() ||
                         'Admin';
@@ -86,20 +84,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     setUser(null);
                 }
             } else {
+                console.log('Profile loaded successfully from partner_users');
                 setUser({
                     id: data.id,
-                    name: data.contact_name,
+                    name: data.contact_name || 'Socio',
                     instituteName: data.company_name,
                     email: data.email,
                     role: 'PARTENAIRE',
-                    status: data.status,
-                    tier: UserTier.STANDARD,
+                    status: data.status || 'pending',
+                    tier: (data.tier as UserTier) || UserTier.STANDARD,
                     currentSpend: 0,
                     monthlyGoal: 800
                 });
             }
         } catch (error) {
-            console.error('Error fetching profile:', error);
+            console.error('CRITICAL ERROR fetching profile:', error);
             setUser(null);
         } finally {
             setIsLoading(false);
@@ -107,19 +106,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     useEffect(() => {
-        // Initial check
         const init = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            setSession(session);
-            if (session?.user) {
-                await fetchProfile(session.user.id, session.user.email || '');
-            } else {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) throw error;
+
+                setSession(session);
+                if (session?.user) {
+                    await fetchProfile(session.user.id, session.user.email || '');
+                } else {
+                    setIsLoading(false);
+                }
+            } catch (err) {
+                console.error('Critical Auth Init Error:', err);
                 setIsLoading(false);
             }
         };
         init();
 
-        // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             setSession(session);
             if (session?.user) {

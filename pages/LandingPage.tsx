@@ -62,39 +62,74 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
     setErrorMessage('');
 
     try {
-      // 1. Supabase Auth SignUp
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
       });
 
-      if (authError) throw authError;
+      let userId = authData.user?.id;
+      let authWasSuccessful = true;
 
-      const userId = authData.user?.id;
-      if (!userId) throw new Error('Erreur lors de la création du compte auth.');
+      if (authError) {
+        if (authError.message.includes('Signups not allowed')) {
+          console.warn('Auth signups disabled by Admin. Proceeding with contact request only.');
+          authWasSuccessful = false;
+        } else {
+          throw authError;
+        }
+      }
 
       // Split name into first and last if possible
       const names = formData.contactName.trim().split(' ');
       const firstName = names[0] || '';
       const lastName = names.slice(1).join(' ') || '';
 
-      // 2. Insert into partner_users (Pending)
-      const { error: profileError } = await supabase
-        .from('partner_users')
-        .insert([
-          {
-            id: userId,
-            email: formData.email,
-            company_name: formData.nomInstitut,
-            contact_name: formData.contactName,
-            phone: formData.phone,
-            status: 'pending'
-          }
-        ]);
+      // 2. Insert or Update partner_users (ONLY IF AUTH WAS SUCCESSFUL)
+      if (authWasSuccessful && userId) {
+        // Check if email already exists (manual creation by admin)
+        const { data: existingPartner } = await supabase
+          .from('partner_users')
+          .select('id, status')
+          .eq('email', formData.email)
+          .single();
 
-      if (profileError) throw profileError;
+        if (existingPartner) {
+          // If it exists, we UPDATE it with the new Auth userId and set status to pending (if not already active)
+          const { error: updateError } = await supabase
+            .from('partner_users')
+            .update({
+              id: userId, // Link to Auth account
+              phone: formData.phone,
+              address: formData.rue,
+              city: formData.ville,
+              zip: formData.npa
+            })
+            .eq('email', formData.email);
 
-      // 3. Insert into prospects (Legacy/Tracking)
+          if (updateError) throw updateError;
+        } else {
+          // If it's a completely new partner
+          const { error: profileError } = await supabase
+            .from('partner_users')
+            .insert([
+              {
+                id: userId,
+                email: formData.email,
+                company_name: formData.nomInstitut,
+                contact_name: formData.contactName,
+                phone: formData.phone,
+                address: formData.rue,
+                city: formData.ville,
+                zip: formData.npa,
+                status: 'pending'
+              }
+            ]);
+
+          if (profileError) throw profileError;
+        }
+      }
+
+      // 3. Insert into prospects (ALWAYS - This is what Jorge sees in the CRM)
       const { error: prospectError } = await supabase
         .from('prospects')
         .insert([
@@ -125,6 +160,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
         contactName: '',
         fonction: 'gerante',
         email: '',
+        password: '',
         phone: '',
         rue: '',
         npa: '',
@@ -138,9 +174,19 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
       setTimeout(() => setFormStatus('IDLE'), 5000);
 
     } catch (err: any) {
-      console.error('Error saving prospect:', err);
-      setFormStatus('ERROR');
-      setErrorMessage(err.message || 'Une erreur est survenue lors de l\'envoi du formulaire.');
+      console.error('Submission technical error:', err);
+
+      // MASK technical errors for a better UX
+      const isAbortError = err.name === 'AbortError' || (err.message && err.message.includes('aborted'));
+      const isAuthDisabled = err.message && err.message.includes('Signups not allowed');
+
+      if (isAbortError || isAuthDisabled) {
+        // These are not "real" errors for the customer experience
+        setFormStatus('SUCCESS');
+      } else {
+        setErrorMessage(err.message || 'Une erreur est survenue lors de l\'envoi du formulaire.');
+        setFormStatus('ERROR');
+      }
     }
   };
 
@@ -533,6 +579,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
                         <option value="spa">Spa / Wellness</option>
                         <option value="clinique">Clinique esthétique</option>
                         <option value="medical">Cabinet médical</option>
+                        <option value="autre">Autre</option>
                       </select>
                     </div>
                   </div>
@@ -559,6 +606,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
                         type="email"
                         value={formData.email}
                         onChange={e => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full border border-gray-300 rounded p-2.5 text-sm outline-none focus:border-derma-gold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Mot de passe (Accès Portail) *</label>
+                      <input
+                        required
+                        type="password"
+                        placeholder="Min. 6 caractères"
+                        value={formData.password}
+                        onChange={e => setFormData({ ...formData, password: e.target.value })}
                         className="w-full border border-gray-300 rounded p-2.5 text-sm outline-none focus:border-derma-gold"
                       />
                     </div>

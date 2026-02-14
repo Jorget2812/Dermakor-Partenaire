@@ -28,7 +28,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
     }
 
     // Check Partner Status
-    if (user && user.role === 'PARTENAIRE' && user.status !== 'approved' && user.status !== 'active') {
+    if (user && user.role === 'PARTENAIRE' &&
+        user.status?.toUpperCase() !== 'APPROVED' &&
+        user.status?.toUpperCase() !== 'ACTIVE') {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-[#FAFAF8]">
                 <div className="max-w-md p-8 bg-white border border-gray-100 rounded-xl shadow-premium">
@@ -39,20 +41,46 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
                             : "Votre accès a été suspendu ou refusé. Veuillez contacter le support."}
                     </p>
                     <button
-                        onClick={() => logout()}
-                        className="text-xs uppercase tracking-widest text-[#D4AF37] hover:text-derma-black font-bold"
+                        onClick={async () => {
+                            await logout();
+                            window.location.href = '/';
+                        }}
+                        className="bg-derma-black text-white px-8 py-3 rounded text-xs uppercase tracking-widest hover:bg-derma-gold transition-colors"
                     >
-                        Se déconnecter
+                        Retour à l'accueil
                     </button>
                 </div>
             </div>
         );
     }
 
-    if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    if (user && allowedRoles && !allowedRoles.includes(user.role)) {
         // Role not allowed, redirect to relevant dashboard or home
         const redirectPath = user.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard';
         return <Navigate to={redirectPath} replace />;
+    }
+
+    if (!user) {
+        // Authenticated but no profile found - logout and go to landing
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-[#FAFAF8]">
+                <div className="max-w-md p-8 bg-white border border-gray-100 rounded-xl shadow-premium">
+                    <h2 className="font-oswald text-2xl mb-4 text-[#EF4444] uppercase">Profil Introuvable</h2>
+                    <p className="text-gray-500 mb-6 font-light">
+                        Nous n'avons pas pu charger les informations de votre profil. Veuillez vous reconnecter.
+                    </p>
+                    <button
+                        onClick={async () => {
+                            await logout();
+                            window.location.href = '/';
+                        }}
+                        className="bg-derma-black text-white px-8 py-3 rounded text-xs uppercase tracking-widest hover:bg-derma-gold transition-colors"
+                    >
+                        Retour à l'accueil
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     return <>{children}</>;

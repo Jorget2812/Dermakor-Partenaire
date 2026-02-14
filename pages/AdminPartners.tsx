@@ -19,12 +19,7 @@ import {
 } from 'lucide-react';
 import { UserTier, Partner, AdminPage } from '../types';
 
-const MOCK_PARTNERS_DATA: Partner[] = [
-    { id: 'CH-001P', instituteName: 'Institut Belle Étoile', contactName: 'Marie Dupont', email: 'contact@belle.ch', location: 'Lausanne • VD', tier: UserTier.PREMIUM, joinDate: 'Jan 2025', status: 'ACTIVE', monthlySpend: 1240 },
-    { id: 'CH-002', instituteName: 'Clinique Leman', contactName: 'Dr. Jean Valjean', email: 'info@leman.ch', location: 'Genève • GE', tier: UserTier.STANDARD, joinDate: 'Dec 2024', status: 'ACTIVE', monthlySpend: 420 },
-    { id: 'CH-003P', instituteName: 'Beauty Lab Genève', contactName: 'Sophie Marceau', email: 'hello@beautylab.ch', location: 'Genève • GE', tier: UserTier.PREMIUM, joinDate: 'Nov 2024', status: 'ACTIVE', monthlySpend: 890 },
-    { id: 'CH-004', instituteName: 'Esthétique 3000', contactName: 'Pierre Curie', email: 'contact@e3000.ch', location: 'Fribourg • FR', tier: UserTier.STANDARD, joinDate: 'Oct 2024', status: 'PENDING', monthlySpend: 0 },
-];
+import { supabase } from '../utils/supabase';
 
 interface AdminPartnersProps {
     onNavigate: (page: AdminPage) => void;
@@ -32,8 +27,57 @@ interface AdminPartnersProps {
 
 const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
     // State for list and selection
-    const [partners, setPartners] = useState<Partner[]>(MOCK_PARTNERS_DATA);
+    const [partners, setPartners] = useState<Partner[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
+
+    // State for filtering
+    const [searchTerm, setSearchTerm] = useState('');
+    const [activeFilter, setActiveFilter] = useState<'ACTIVE' | 'PENDING' | 'INACTIVE' | 'ALL'>('ALL');
+
+    // State for New Partner Modal
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [newPartner, setNewPartner] = useState({
+        company_name: '',
+        contact_name: '',
+        email: '',
+        address: '',
+        tier: UserTier.STANDARD
+    });
+
+    const fetchPartners = async () => {
+        setIsLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('partner_users')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            const mappedPartners: Partner[] = (data || []).map(p => ({
+                id: p.id,
+                instituteName: p.company_name || 'Sans nom',
+                contactName: p.contact_name || 'Non spécifié',
+                email: p.email || '',
+                location: p.address || 'Non spécifié',
+                tier: (p.tier as UserTier) || UserTier.STANDARD,
+                joinDate: p.created_at ? new Date(p.created_at).toLocaleDateString('fr-CH', { month: 'short', year: 'numeric' }) : 'N/A',
+                status: (p.status || 'PENDING').toUpperCase() as any,
+                monthlySpend: 0
+            }));
+
+            setPartners(mappedPartners);
+        } catch (error) {
+            console.error('Error fetching partners:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchPartners();
+    }, []);
 
     // State for editing
     const [isEditing, setIsEditing] = useState(false);
@@ -47,12 +91,23 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
         }
     }, [selectedPartner]);
 
+    // Filtered partners list
+    const filteredPartners = partners.filter(p => {
+        const matchesSearch = (p.instituteName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.contactName || '').toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesFilter = activeFilter === 'ALL' || p.status === activeFilter;
+        return matchesSearch && matchesFilter;
+    });
+
     const StatusBadge = ({ status }: { status: string }) => {
         const styles = {
             ACTIVE: 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20',
+            APPROVED: 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20',
             PENDING: 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20',
+            REJECTED: 'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/20',
             INACTIVE: 'bg-[#999999]/10 text-[#999999] border-[#999999]/20',
-        }[status] || '';
+        }[status] || 'bg-gray-100 text-gray-800';
 
         return (
             <span className={`px-2.5 py-0.5 rounded text-[11px] font-semibold border ${styles}`}>
@@ -72,6 +127,64 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
     );
 
     // --- HANDLERS ---
+    const handleExport = () => {
+        const headers = ["ID", "Institut", "Contact", "Email", "Localisation", "Tier", "Date", "Status"];
+        const rows = partners.map(p => [
+            p.id, p.instituteName, p.contactName, p.email, p.location, p.tier, p.joinDate, p.status
+        ]);
+
+        let csvContent = "data:text/csv;charset=utf-8,"
+            + headers.join(",") + "\n"
+            + rows.map(e => e.join(",")).join("\n");
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "partenaires_dermakor.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleCreatePartner = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            // Robust UUID generator fallback
+            const generateUUID = () => {
+                if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                    var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            };
+
+            const { error } = await supabase
+                .from('partner_users')
+                .insert([{
+                    id: generateUUID(),
+                    company_name: newPartner.company_name,
+                    contact_name: newPartner.contact_name,
+                    email: newPartner.email,
+                    address: newPartner.address,
+                    tier: newPartner.tier,
+                    status: 'PENDING'
+                }]);
+
+            if (error) {
+                console.error('Supabase error:', error);
+                throw error;
+            }
+
+            setIsAddModalOpen(false);
+            setNewPartner({ company_name: '', contact_name: '', email: '', address: '', tier: UserTier.STANDARD });
+            await fetchPartners();
+            alert("Partenaire créé avec succès !");
+        } catch (err: any) {
+            console.error('Error creating partner:', err);
+            alert(`Erreur lors de la création du partenaire: ${err.message || 'Erreur inconnue'}`);
+        }
+    };
+
     const handleSelectPartner = (partner: Partner) => {
         setSelectedPartner(partner);
     };
@@ -88,19 +201,52 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
         setEditForm({});
     };
 
-    const handleSaveEdit = () => {
+    const handleSaveEdit = async () => {
+        if (!selectedPartner || !editForm) return;
+
+        try {
+            const { error } = await supabase
+                .from('partner_users')
+                .update({
+                    company_name: editForm.instituteName,
+                    contact_name: editForm.contactName,
+                    email: editForm.email,
+                    address: editForm.location,
+                    tier: editForm.tier,
+                })
+                .eq('id', selectedPartner.id);
+
+            if (error) throw error;
+
+            await fetchPartners(); // Refresh list
+            setSelectedPartner(null);
+            setIsEditing(false);
+        } catch (error) {
+            console.error('Error updating partner:', error);
+            alert('Erreur lors de la mise à jour du partenaire');
+        }
+    };
+
+    const handleApprovePartner = async (tier?: UserTier) => {
         if (!selectedPartner) return;
+        const targetTier = tier || selectedPartner.tier;
+        try {
+            const { error } = await supabase
+                .from('partner_users')
+                .update({
+                    status: 'ACTIVE',
+                    tier: targetTier
+                })
+                .eq('id', selectedPartner.id);
 
-        // Merge updates
-        const updatedPartner = { ...selectedPartner, ...editForm } as Partner;
-
-        // Update List
-        const updatedList = partners.map(p => p.id === updatedPartner.id ? updatedPartner : p);
-        setPartners(updatedList);
-
-        // Update Active View
-        setSelectedPartner(updatedPartner);
-        setIsEditing(false);
+            if (error) throw error;
+            await fetchPartners();
+            setSelectedPartner({ ...selectedPartner, status: 'ACTIVE' as any, tier: targetTier });
+            alert(`Partenaire approuvé en ${targetTier} avec succès !`);
+        } catch (error) {
+            console.error('Error approving partner:', error);
+            alert('Erreur lors de l\'approbation');
+        }
     };
 
     const handleGoToReports = () => {
@@ -113,10 +259,16 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
             {/* Action Bar */}
             <div className="flex flex-col md:flex-row justify-between gap-4">
                 <div className="flex gap-2">
-                    <button className="bg-[#1A1A1A] text-white px-4 py-2 rounded text-[13px] font-semibold flex items-center gap-2 hover:bg-[#2C3E50] transition-colors">
+                    <button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="bg-[#1A1A1A] text-white px-4 py-2 rounded text-[13px] font-semibold flex items-center gap-2 hover:bg-[#2C3E50] transition-colors"
+                    >
                         <Plus size={16} /> Nouveau
                     </button>
-                    <button className="bg-white border border-[#E0E0E0] text-[#1A1A1A] px-4 py-2 rounded text-[13px] font-medium flex items-center gap-2 hover:bg-[#FAFAF8]">
+                    <button
+                        onClick={handleExport}
+                        className="bg-white border border-[#E0E0E0] text-[#1A1A1A] px-4 py-2 rounded text-[13px] font-medium flex items-center gap-2 hover:bg-[#FAFAF8]"
+                    >
                         <Download size={16} /> Exporter
                     </button>
                 </div>
@@ -127,20 +279,34 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                         <input
                             type="text"
                             placeholder="Rechercher..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-9 pr-4 py-2 bg-white border border-[#E0E0E0] rounded text-sm w-64 focus:outline-none focus:border-[#1A1A1A]"
                         />
                     </div>
-                    <button className="bg-white border border-[#E0E0E0] p-2 rounded hover:bg-[#FAFAF8]">
-                        <Filter size={18} className="text-[#6B6B6B]" />
-                    </button>
                 </div>
             </div>
 
             {/* Stats Summary Strip */}
             <div className="flex gap-8 border-b border-[#E0E0E0] pb-1">
-                <button className="text-[13px] font-medium text-[#1A1A1A] border-b-2 border-[#1A1A1A] pb-3 px-1">Actifs ({partners.filter(p => p.status === 'ACTIVE').length})</button>
-                <button className="text-[13px] font-medium text-[#999999] hover:text-[#6B6B6B] pb-3 px-1 transition-colors">En attente ({partners.filter(p => p.status === 'PENDING').length})</button>
-                <button className="text-[13px] font-medium text-[#999999] hover:text-[#6B6B6B] pb-3 px-1 transition-colors">Inactifs (0)</button>
+                <button
+                    onClick={() => setActiveFilter('ALL')}
+                    className={`text-[13px] font-medium pb-3 px-1 transition-colors ${activeFilter === 'ALL' ? 'text-[#1A1A1A] border-b-2 border-[#1A1A1A]' : 'text-[#999999] hover:text-[#6B6B6B]'}`}
+                >
+                    Tous ({partners.length})
+                </button>
+                <button
+                    onClick={() => setActiveFilter('ACTIVE')}
+                    className={`text-[13px] font-medium pb-3 px-1 transition-colors ${activeFilter === 'ACTIVE' || activeFilter === 'APPROVED' ? 'text-[#1A1A1A] border-b-2 border-[#1A1A1A]' : 'text-[#999999] hover:text-[#6B6B6B]'}`}
+                >
+                    Actifs ({partners.filter(p => p.status === 'ACTIVE' || p.status === 'APPROVED' || p.status === 'ACTIVE').length})
+                </button>
+                <button
+                    onClick={() => setActiveFilter('PENDING')}
+                    className={`text-[13px] font-medium pb-3 px-1 transition-colors ${activeFilter === 'PENDING' ? 'text-[#1A1A1A] border-b-2 border-[#1A1A1A]' : 'text-[#999999] hover:text-[#6B6B6B]'}`}
+                >
+                    En attente ({partners.filter(p => p.status === 'PENDING').length})
+                </button>
             </div>
 
             {/* Table */}
@@ -155,41 +321,52 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                 </div>
 
                 <div className="divide-y divide-[#F5F5F5]">
-                    {partners.map((partner) => (
-                        <div
-                            key={partner.id}
-                            onClick={() => handleSelectPartner(partner)}
-                            className="grid grid-cols-[100px_2fr_1.5fr_120px_100px_60px] px-6 py-4 items-center hover:bg-[#FAFAF8] transition-colors cursor-pointer group"
-                        >
-                            <div>
-                                <span className="font-mono text-[12px] font-medium text-[#2C3E50] bg-[#F5F5F5] px-2 py-1 rounded">
-                                    {partner.id}
-                                </span>
-                            </div>
-                            <div>
-                                <div className="text-[14px] font-medium text-[#1A1A1A] mb-0.5">{partner.instituteName}</div>
-                                <div className="text-[12px] text-[#6B6B6B] flex items-center gap-1"><User size={10} /> {partner.contactName}</div>
-                            </div>
-                            <div>
-                                <div className="text-[14px] text-[#1A1A1A] mb-0.5">{partner.location}</div>
-                                <div className="text-[12px] text-[#6B6B6B] flex items-center gap-1"><Mail size={10} /> {partner.email}</div>
-                            </div>
-                            <div>
-                                <TierBadge tier={partner.tier} />
-                            </div>
-                            <div className="text-[13px] text-[#6B6B6B] font-mono">{partner.joinDate}</div>
-                            <div className="text-right">
-                                <button className="p-1.5 rounded hover:bg-[#E8E8E8] text-gray-400 hover:text-[#1A1A1A]">
-                                    <MoreHorizontal size={18} />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                    {isLoading ? (
+                        <div className="p-12 text-center text-gray-400 text-sm">Chargement...</div>
+                    ) : (
+                        <>
+                            {filteredPartners.map((partner) => (
+                                <div
+                                    key={partner.id}
+                                    onClick={() => handleSelectPartner(partner)}
+                                    className="grid grid-cols-[100px_2fr_1.5fr_120px_100px_60px] px-6 py-4 items-center hover:bg-[#FAFAF8] transition-colors cursor-pointer group"
+                                >
+                                    <div>
+                                        <span className="font-mono text-[12px] font-medium text-[#2C3E50] bg-[#F5F5F5] px-2 py-1 rounded">
+                                            {partner.id.slice(0, 8)}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <div className="text-[14px] font-medium text-[#1A1A1A] mb-0.5">{partner.instituteName}</div>
+                                        <div className="text-[12px] text-[#6B6B6B] flex items-center gap-1"><User size={10} /> {partner.contactName}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[14px] text-[#1A1A1A] mb-0.5">{partner.location}</div>
+                                        <div className="text-[12px] text-[#6B6B6B] flex items-center gap-1"><Mail size={10} /> {partner.email}</div>
+                                    </div>
+                                    <div>
+                                        <TierBadge tier={partner.tier} />
+                                    </div>
+                                    <div className="text-[13px] text-[#6B6B6B] font-mono">{partner.joinDate}</div>
+                                    <div className="text-right">
+                                        <button className="p-1.5 rounded hover:bg-[#E8E8E8] text-gray-400 hover:text-[#1A1A1A]">
+                                            <MoreHorizontal size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            {filteredPartners.length === 0 && (
+                                <div className="p-12 text-center text-gray-400 text-sm">
+                                    Aucun partenaire trouvé.
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
 
                 {/* Pagination */}
                 <div className="bg-[#FAFAF8] border-t border-[#E8E8E8] px-6 py-3 flex justify-between items-center text-[12px] text-[#6B6B6B]">
-                    <span>Affichage {partners.length} résultats</span>
+                    <span>Affichage {filteredPartners.length} résultats</span>
                     <div className="flex gap-2">
                         <button className="px-3 py-1 border border-[#E0E0E0] rounded bg-white hover:bg-[#F5F5F5] disabled:opacity-50">Préc.</button>
                         <button className="px-3 py-1 border border-[#E0E0E0] rounded bg-white hover:bg-[#F5F5F5]">Suiv.</button>
@@ -197,11 +374,80 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                 </div>
             </div>
 
+            {/* NEW PARTNER MODAL */}
+            {isAddModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-[#1A1A1A]/70 backdrop-blur-sm" onClick={() => setIsAddModalOpen(false)}></div>
+                    <div className="bg-white w-full max-w-lg rounded-lg shadow-2xl relative z-10 overflow-hidden">
+                        <div className="bg-[#FAFAF8] px-6 py-4 border-b border-[#E8E8E8] flex justify-between items-center">
+                            <h3 className="font-oswald text-lg text-[#1A1A1A] uppercase tracking-wide">Nouveau Partenaire</h3>
+                            <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 hover:text-[#1A1A1A]"><X size={20} /></button>
+                        </div>
+                        <form onSubmit={handleCreatePartner} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-[11px] uppercase font-bold text-[#6B6B6B] mb-1.5">Nom de l'institut</label>
+                                <input
+                                    type="text" required
+                                    value={newPartner.company_name}
+                                    onChange={e => setNewPartner({ ...newPartner, company_name: e.target.value })}
+                                    className="w-full border border-[#E0E0E0] rounded p-2.5 text-sm focus:border-[#1A1A1A] outline-none"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[11px] uppercase font-bold text-[#6B6B6B] mb-1.5">Contact</label>
+                                    <input
+                                        type="text" required
+                                        value={newPartner.contact_name}
+                                        onChange={e => setNewPartner({ ...newPartner, contact_name: e.target.value })}
+                                        className="w-full border border-[#E0E0E0] rounded p-2.5 text-sm focus:border-[#1A1A1A] outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[11px] uppercase font-bold text-[#6B6B6B] mb-1.5">Email</label>
+                                    <input
+                                        type="email" required
+                                        value={newPartner.email}
+                                        onChange={e => setNewPartner({ ...newPartner, email: e.target.value })}
+                                        className="w-full border border-[#E0E0E0] rounded p-2.5 text-sm focus:border-[#1A1A1A] outline-none"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[11px] uppercase font-bold text-[#6B6B6B] mb-1.5">Adresse / Localisation</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: Lausanne, VD"
+                                    value={newPartner.address}
+                                    onChange={e => setNewPartner({ ...newPartner, address: e.target.value })}
+                                    className="w-full border border-[#E0E0E0] rounded p-2.5 text-sm focus:border-[#1A1A1A] outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] uppercase font-bold text-[#6B6B6B] mb-1.5">Niveau (Tier)</label>
+                                <select
+                                    value={newPartner.tier}
+                                    onChange={e => setNewPartner({ ...newPartner, tier: e.target.value as UserTier })}
+                                    className="w-full border border-[#E0E0E0] rounded p-2.5 text-sm bg-white"
+                                >
+                                    <option value={UserTier.STANDARD}>Standard</option>
+                                    <option value={UserTier.PREMIUM}>Premium</option>
+                                </select>
+                            </div>
+                            <div className="pt-4 flex justify-end gap-3">
+                                <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 border border-[#E0E0E0] rounded text-sm hover:bg-[#F5F5F5]">Annuler</button>
+                                <button type="submit" className="px-6 py-2 bg-[#1A1A1A] text-white rounded text-sm font-medium hover:bg-[#2C3E50]">Créer le partenaire</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* PARTNER DETAIL MODAL */}
             {selectedPartner && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-[#1A1A1A]/60 backdrop-blur-sm" onClick={() => setSelectedPartner(null)}></div>
-                    <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl relative z-10 overflow-hidden animate-slide-up">
+                    <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl relative z-10 overflow-hidden">
 
                         {/* Modal Header */}
                         <div className="bg-[#FAFAF8] px-8 py-6 border-b border-[#E8E8E8] flex justify-between items-start">
@@ -365,6 +611,22 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                 <>
                                     <button className="text-[#EF4444] text-xs font-semibold hover:underline">Bloquer le partenaire</button>
                                     <div className="flex gap-3">
+                                        {selectedPartner.status === ('PENDING' as any) && (
+                                            <>
+                                                <button
+                                                    onClick={() => handleApprovePartner(UserTier.STANDARD)}
+                                                    className="px-4 py-2 border border-[#E0E0E0] text-[#1A1A1A] rounded text-sm font-medium hover:bg-gray-50 flex items-center gap-2"
+                                                >
+                                                    Valider Standard
+                                                </button>
+                                                <button
+                                                    onClick={() => handleApprovePartner(UserTier.PREMIUM)}
+                                                    className="px-4 py-2 bg-[#C0A76A] text-white rounded text-sm font-medium hover:bg-[#B08D55] flex items-center gap-2 shadow-sm"
+                                                >
+                                                    <Check size={16} /> Valider Premium
+                                                </button>
+                                            </>
+                                        )}
                                         <button
                                             onClick={handleStartEdit}
                                             className="px-4 py-2 border border-[#E0E0E0] rounded bg-white text-sm font-medium hover:bg-[#F5F5F5] hover:border-[#1A1A1A] transition-colors"
