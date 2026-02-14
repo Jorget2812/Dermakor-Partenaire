@@ -253,7 +253,12 @@ const Login: React.FC = () => {
                         <div className="mt-16 text-center">
                             <p className="text-sm font-sans text-[#6B6B6B]">
                                 {t('login_no_account')}
-                                <a href="#" className="ml-2 text-derma-gold hover:underline font-medium">{t('login_become_partner')}</a>
+                                <button
+                                    onClick={() => navigate('/')}
+                                    className="ml-2 text-derma-gold hover:underline font-medium"
+                                >
+                                    {t('login_become_partner')}
+                                </button>
                             </p>
                         </div>
                     </div>
@@ -354,9 +359,9 @@ const Login: React.FC = () => {
                                 </div>
                                 <button
                                     onClick={() => navigate('/admin/login')}
-                                    className="mt-4 text-[9px] text-gray-300 hover:text-derma-gold transition-colors opacity-10 hover:opacity-100 uppercase tracking-tighter"
+                                    className="mt-6 text-[8px] text-gray-400 hover:text-derma-gold transition-opacity opacity-[0.01] hover:opacity-[0.07] uppercase tracking-tighter"
                                 >
-                                    Gestion
+                                    .
                                 </button>
                             </div>
                         </div>

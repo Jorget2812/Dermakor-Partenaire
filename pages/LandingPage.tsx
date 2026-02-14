@@ -676,21 +676,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
         </div>
       </section>
 
-      {/* 10. FINAL CTA */}
-      <section className="py-24 px-6 bg-gradient-to-br from-derma-black to-[#2C3E50] text-white text-center">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="font-oswald text-4xl md:text-5xl uppercase mb-6">Offre de Lancement 2025</h2>
-          <p className="text-xl font-light text-gray-300 mb-10">
-            Rejoignez l'élite de l'esthétique Suisse avant la fin du mois et recevez un <span className="text-derma-gold font-bold">Kit Découverte (valeur CHF 150)</span> en plus de la livraison offerte.
-          </p>
-          <button
-            onClick={scrollToForm}
-            className="bg-white text-derma-black hover:bg-derma-gold hover:text-white px-10 py-4 rounded text-sm font-bold uppercase tracking-widest transition-all shadow-2xl"
-          >
-            Je profite de l'offre →
-          </button>
-        </div>
-      </section>
 
       {/* 11. FOOTER */}
       <footer className="bg-[#111] text-gray-500 py-16 px-6 text-sm border-t border-white/5">
