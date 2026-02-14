@@ -297,9 +297,9 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                 </button>
                 <button
                     onClick={() => setActiveFilter('ACTIVE')}
-                    className={`text-[13px] font-medium pb-3 px-1 transition-colors ${activeFilter === 'ACTIVE' || activeFilter === 'APPROVED' ? 'text-[#1A1A1A] border-b-2 border-[#1A1A1A]' : 'text-[#999999] hover:text-[#6B6B6B]'}`}
+                    className={`text-[13px] font-medium pb-3 px-1 transition-colors ${activeFilter === 'ACTIVE' ? 'text-[#1A1A1A] border-b-2 border-[#1A1A1A]' : 'text-[#999999] hover:text-[#6B6B6B]'}`}
                 >
-                    Actifs ({partners.filter(p => p.status === 'ACTIVE' || p.status === 'APPROVED' || p.status === 'ACTIVE').length})
+                    Actifs ({partners.filter(p => p.status === 'ACTIVE').length})
                 </button>
                 <button
                     onClick={() => setActiveFilter('PENDING')}

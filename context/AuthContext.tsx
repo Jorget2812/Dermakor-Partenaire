@@ -1,4 +1,5 @@
-import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import * as React from 'react';
+import { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User, UserTier } from '../types';
 import { supabase } from '../utils/supabase';
 import { Session } from '@supabase/supabase-js';
@@ -44,6 +45,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 setUser({
                     id: userId,
                     name: 'Jorge Torres (Master Admin)',
+                    instituteName: 'DermaKor Swiss (HQ)',
                     email: normalizedEmail,
                     role: 'ADMIN',
                     status: 'active',
@@ -85,6 +87,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         setUser({
                             id: userId,
                             name: displayName,
+                            instituteName: adminData.institute_name || 'DermaKor Swiss',
                             email: email,
                             role: 'ADMIN',
                             status: 'active',

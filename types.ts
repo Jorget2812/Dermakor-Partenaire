@@ -97,7 +97,7 @@ export interface AdminProduct extends Product {
   premPrice: number;
 }
 
-export type TranslationKey = 
+export type TranslationKey =
   | 'login_title'
   | 'login_subtitle'
   | 'login_select_level'
@@ -164,6 +164,9 @@ export type TranslationKey =
   | 'method'
   | 'percentage'
   | 'fixed'
+  | 'dash_active_tier_premium'
+  | 'dash_monthly_goal'
+  | 'dash_view_all'
   | 'history';
 
 export type Translations = Record<Language, Record<TranslationKey, string>>;
