@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { LanguageProvider } from './context/LanguageContext';
+import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Order from './pages/Order';
 import Academy from './pages/Academy';
 import LandingPage from './pages/LandingPage';
-import { User, UserTier, AdminPage } from './types';
-import { MOCK_USER } from './constants';
+import { useAuth } from './hooks/useAuth';
 
 // Admin Components
 import AdminLogin from './pages/AdminLogin';
@@ -20,136 +22,67 @@ import AdminCatalog from './pages/AdminCatalog';
 import AdminReports from './pages/AdminReports';
 import AdminSettings from './pages/AdminSettings';
 
-const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [activePage, setActivePage] = useState('dashboard');
-  
-  // App State: 'LANDING' | 'PORTAL'
-  const [appView, setAppView] = useState<'LANDING' | 'PORTAL'>('LANDING');
-
-  // Admin State
-  const [isAdminMode, setIsAdminMode] = useState(false);
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [activeAdminPage, setActiveAdminPage] = useState<AdminPage>('dashboard');
-
-  // --- PARTNER HANDLERS ---
-  const handleLogin = () => {
-    setUser(MOCK_USER);
-  };
-
-  const handleLogout = () => {
-    setUser(null);
-    setActivePage('dashboard');
-    setAppView('LANDING'); // Go back to landing on logout
-  };
-
-  const renderPartnerPage = () => {
-    switch (activePage) {
-      case 'dashboard':
-        return user ? <Dashboard user={user} onNavigate={setActivePage} /> : null;
-      case 'order':
-        return user ? <Order /> : null;
-      case 'academy':
-        return user ? <Academy user={user} /> : null;
-      default:
-        return user ? <Dashboard user={user} onNavigate={setActivePage} /> : null;
-    }
-  };
-
-  // --- ADMIN HANDLERS ---
-  const handleAdminLogin = () => {
-    setIsAdminLoggedIn(true);
-  };
-
-  const handleAdminLogout = () => {
-    setIsAdminLoggedIn(false);
-    setIsAdminMode(false);
-    setActiveAdminPage('dashboard');
-    setAppView('PORTAL'); // Return to portal login view
-  };
-
-  const renderAdminPage = () => {
-    switch (activeAdminPage) {
-      case 'dashboard':
-        return <AdminDashboard />;
-      case 'partners':
-        return <AdminPartners onNavigate={setActiveAdminPage} />;
-      case 'orders':
-        return <AdminOrders />;
-      case 'catalog':
-          return <AdminCatalog />;
-      case 'pricing':
-          return <AdminPricing />;
-      case 'reports':
-          return <AdminReports />;
-      case 'settings':
-          return <AdminSettings />;
-      default:
-        return <AdminDashboard />;
-    }
-  };
+const AppContent: React.FC = () => {
+  const { user, logout } = useAuth();
 
   return (
-    <LanguageProvider>
-      
-      {appView === 'LANDING' ? (
-        <LandingPage onNavigateToLogin={() => setAppView('PORTAL')} />
-      ) : (
-        /* PORTAL & ADMIN LOGIC */
-        isAdminMode ? (
-          // ADMIN FLOW
-          !isAdminLoggedIn ? (
-            <AdminLogin 
-              onLogin={handleAdminLogin} 
-              onBackToPortal={() => setIsAdminMode(false)}
-            />
-          ) : (
-            <AdminLayout
-              activePage={activeAdminPage}
-              onNavigate={setActiveAdminPage}
-              onLogout={handleAdminLogout}
-            >
-              {renderAdminPage()}
-            </AdminLayout>
-          )
-        ) : (
-          // PARTNER FLOW
-          <Layout 
-            activePage={activePage} 
-            onNavigate={setActivePage} 
-            user={user}
-            onLogout={handleLogout}
-          >
-            {!user ? (
-              <div className="flex flex-col items-center justify-center min-h-[80vh] w-full">
-                 <div className="w-full mb-4 px-8">
-                    <button 
-                      onClick={() => setAppView('LANDING')}
-                      className="text-xs text-gray-400 hover:text-derma-black flex items-center gap-1 uppercase tracking-wider"
-                    >
-                      ← Retour au site
-                    </button>
-                 </div>
-                 <Login onLogin={handleLogin} />
-                 
-                 {/* Secret Admin Entry */}
-                 <div className="mt-8 pt-8 border-t border-gray-100 w-full max-w-md text-center">
-                    <button 
-                      onClick={() => setIsAdminMode(true)}
-                      className="text-[10px] text-gray-300 hover:text-derma-gold uppercase tracking-widest transition-colors"
-                    >
-                      Admin Access
-                    </button>
-                 </div>
-              </div>
-            ) : (
-              renderPartnerPage()
-            )}
-          </Layout>
-        )
-      )}
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/" element={<LandingPage onNavigateToLogin={() => { }} />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/admin/login" element={<AdminLogin onBackToPortal={() => { }} />} />
 
-    </LanguageProvider>
+      {/* Partner Routes */}
+      <Route
+        path="/dashboard/*"
+        element={
+          <ProtectedRoute allowedRoles={['PARTENAIRE']}>
+            <Layout user={user as any} onLogout={logout} activePage="dashboard" onNavigate={() => { }}>
+              <Routes>
+                <Route index element={<Dashboard user={user as any} onNavigate={() => { }} />} />
+                <Route path="order" element={<Order />} />
+                <Route path="academy" element={<Academy user={user as any} />} />
+                <Route path="*" element={<Navigate to="" replace />} />
+              </Routes>
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Admin Routes */}
+      <Route
+        path="/admin/*"
+        element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminLayout onLogout={logout} activePage="dashboard" onNavigate={() => { }}>
+              <Routes>
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="partners" element={<AdminPartners onNavigate={() => { }} />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="catalog" element={<AdminCatalog />} />
+                <Route path="pricing" element={<AdminPricing />} />
+                <Route path="reports" element={<AdminReports />} />
+                <Route path="settings" element={<AdminSettings />} />
+                <Route path="*" element={<Navigate to="dashboard" replace />} />
+              </Routes>
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <LanguageProvider>
+        <AppContent />
+      </LanguageProvider>
+    </AuthProvider>
   );
 };
 
