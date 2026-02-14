@@ -237,17 +237,17 @@ export const MOCK_USER: User = {
 export const PRODUCT_CATEGORIES = [
   "Tous les produits",
   "Gamme HomeCare",
-  "Gamme Perfect-A",
-  "Traitement Spécialisé",
-  "MesoBooster Ampoule",
-  "Solution HydraFacial",
-  "Démaquillant - Nettoyant",
-  "Tonique",
-  "Exfoliant",
-  "Peeling",
   "Sérum",
   "Crème",
-  "Masques",
+  "Tonique",
+  "Démaquillant - Nettoyant",
+  "Traitement Spécialisé",
+  "Masque Concentré",
+  "Meso Booster Ampoule",
+  "Exfoliant",
+  "Soin Peeling",
+  "Gamme Pfect-A",
+  "Solution HydraFacial",
   "Accessoire"
 ];
 

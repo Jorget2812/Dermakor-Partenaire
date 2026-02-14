@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { PRODUCT_CATEGORIES } from '../constants';
 import { calculateUserPrice } from '../utils/pricing';
-import { Product, UserTier } from '../types';
+import { Product, UserTier, Category } from '../types';
 import { CheckCircle2, ChevronRight, AlertCircle, Info, Loader2 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -14,11 +13,26 @@ const Order: React.FC = () => {
     const navigate = useNavigate();
 
     const [products, setProducts] = useState<Product[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [quantities, setQuantities] = useState<Record<string, number>>({});
     const [submitted, setSubmitted] = useState(false);
-    const [selectedCategory, setSelectedCategory] = useState<string>("Tous les produits");
+    const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+
+    const fetchCategories = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('categories')
+                .select('*')
+                .order('order_index', { ascending: true });
+
+            if (error) throw error;
+            setCategories(data || []);
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     const fetchProducts = async () => {
         setIsLoading(true);
@@ -26,7 +40,7 @@ const Order: React.FC = () => {
             const { data, error } = await supabase
                 .from('products')
                 .select('*')
-                .order('category');
+                .order('name');
 
             if (error) throw error;
             setProducts(data.map(p => ({
@@ -34,8 +48,10 @@ const Order: React.FC = () => {
                 name: p.name,
                 sku: p.sku,
                 category: p.category,
+                categoryId: p.category_id,
                 price: Number(p.price),
                 stockStatus: p.stock_status as any,
+                stock_quantity: Number(p.stock_quantity || 0),
                 description: p.description || '',
                 pricing: {
                     basePrice: Number(p.price),
@@ -52,6 +68,7 @@ const Order: React.FC = () => {
 
     useEffect(() => {
         fetchProducts();
+        fetchCategories();
     }, []);
 
     const userTier = user?.tier || UserTier.STANDARD;
@@ -122,10 +139,10 @@ const Order: React.FC = () => {
     const total = calculateTotal();
 
     const filteredProducts = useMemo(() => {
-        if (selectedCategory === "Tous les produits") {
+        if (selectedCategory === "ALL") {
             return products;
         }
-        return products.filter(p => p.category === selectedCategory);
+        return products.filter(p => p.categoryId === selectedCategory || p.category === selectedCategory);
     }, [selectedCategory, products]);
 
     if (isLoading) {
@@ -158,16 +175,25 @@ const Order: React.FC = () => {
                         <h3 className="text-xs uppercase tracking-widest text-gray-400 font-medium">Catégories</h3>
                     </div>
                     <nav className="flex flex-col py-2">
-                        {["Tous les produits", ...PRODUCT_CATEGORIES.filter(c => c !== "Tous les productos")].map((category) => (
+                        <button
+                            onClick={() => setSelectedCategory("ALL")}
+                            className={`text-left px-5 py-3 text-sm transition-all flex items-center justify-between group
+                                ${selectedCategory === "ALL" ? 'text-derma-black font-semibold bg-gray-50 border-l-2 border-derma-gold' : 'text-gray-500 hover:text-derma-black hover:bg-gray-50 border-l-2 border-transparent'}
+                            `}
+                        >
+                            Toutes les catégories
+                            {selectedCategory === "ALL" && <ChevronRight size={14} className="text-derma-gold" />}
+                        </button>
+                        {categories.map((cat) => (
                             <button
-                                key={category}
-                                onClick={() => setSelectedCategory(category)}
+                                key={cat.id}
+                                onClick={() => setSelectedCategory(cat.id)}
                                 className={`text-left px-5 py-3 text-sm transition-all flex items-center justify-between group
-                                    ${selectedCategory === category ? 'text-derma-black font-semibold bg-gray-50 border-l-2 border-derma-gold' : 'text-gray-500 hover:text-derma-black hover:bg-gray-50 border-l-2 border-transparent'}
+                                    ${selectedCategory === cat.id ? 'text-derma-black font-semibold bg-gray-50 border-l-2 border-derma-gold' : 'text-gray-500 hover:text-derma-black hover:bg-gray-50 border-l-2 border-transparent'}
                                 `}
                             >
-                                {category}
-                                {selectedCategory === category && <ChevronRight size={14} className="text-derma-gold" />}
+                                {cat.name}
+                                {selectedCategory === cat.id && <ChevronRight size={14} className="text-derma-gold" />}
                             </button>
                         ))}
                     </nav>
@@ -200,9 +226,16 @@ const Order: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 hidden md:table-cell">
-                                                {product.stockStatus === 'IN_STOCK' && <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded">Available</span>}
-                                                {product.stockStatus === 'LOW_STOCK' && <span className="text-[10px] text-orange-600 bg-orange-50 px-2 py-0.5 rounded">Low Stock</span>}
-                                                {product.stockStatus === 'OUT_OF_STOCK' && <span className="text-[10px] text-red-600 bg-red-50 px-2 py-0.5 rounded">Out of Stock</span>}
+                                                <div className="flex flex-col gap-1">
+                                                    {product.stockStatus === 'IN_STOCK' && <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded w-fit">Available</span>}
+                                                    {product.stockStatus === 'LOW_STOCK' && <span className="text-[10px] text-orange-600 bg-orange-50 px-2 py-0.5 rounded w-fit">Low Stock</span>}
+                                                    {product.stockStatus === 'OUT_OF_STOCK' && <span className="text-[10px] text-red-600 bg-red-50 px-2 py-0.5 rounded w-fit">Out of Stock</span>}
+                                                    {product.stock_quantity !== undefined && (
+                                                        <span className="text-[9px] text-gray-400 font-medium">
+                                                            {product.stock_quantity > 0 ? `${product.stock_quantity} units left` : 'None in stock'}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <span className="font-mono text-sm text-gray-700 font-medium">{userPrice.toFixed(2)}</span>

@@ -18,7 +18,6 @@ import {
   ChevronDown,
   X
 } from 'lucide-react';
-import { supabase } from '../utils/supabase';
 
 interface LandingPageProps {
   onNavigateToLogin: () => void;
@@ -26,7 +25,6 @@ interface LandingPageProps {
 
 const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
   const navigate = useNavigate();
-  // --- STATE ---
   const [selectedTier, setSelectedTier] = useState<'STANDARD' | 'PREMIUM' | null>(null);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -36,163 +34,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
     setIsVisible(true);
   }, []);
 
-  // Form State
-  const [formData, setFormData] = useState({
-    nomInstitut: '',
-    typeEtablissement: 'institut',
-    tva: '',
-    contactName: '',
-    fonction: 'gerante',
-    email: '',
-    password: '',
-    phone: '',
-    rue: '',
-    npa: '',
-    ville: '',
-    canton: 'Geneve',
-    programme: 'indecis',
-    conditions: false
-  });
-  const [formStatus, setFormStatus] = useState<'IDLE' | 'LOADING' | 'SUCCESS' | 'ERROR'>('IDLE');
-  const [errorMessage, setErrorMessage] = useState('');
+  const EXTERNAL_FORM_URL = "https://dermakor-swiss.typeform.com/partner-application"; // Placeholder
 
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormStatus('LOADING');
-    setErrorMessage('');
-
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-      });
-
-      let userId = authData.user?.id;
-      let authWasSuccessful = true;
-
-      if (authError) {
-        if (authError.message.includes('Signups not allowed')) {
-          console.warn('Auth signups disabled by Admin. Proceeding with contact request only.');
-          authWasSuccessful = false;
-        } else {
-          throw authError;
-        }
-      }
-
-      // Split name into first and last if possible
-      const names = formData.contactName.trim().split(' ');
-      const firstName = names[0] || '';
-      const lastName = names.slice(1).join(' ') || '';
-
-      // 2. Insert or Update partner_users (ONLY IF AUTH WAS SUCCESSFUL)
-      if (authWasSuccessful && userId) {
-        // Check if email already exists (manual creation by admin)
-        const { data: existingPartner } = await supabase
-          .from('partner_users')
-          .select('id, status')
-          .eq('email', formData.email)
-          .single();
-
-        if (existingPartner) {
-          // If it exists, we UPDATE it with the new Auth userId and set status to pending (if not already active)
-          const { error: updateError } = await supabase
-            .from('partner_users')
-            .update({
-              id: userId, // Link to Auth account
-              phone: formData.phone,
-              address: formData.rue,
-              city: formData.ville,
-              zip: formData.npa
-            })
-            .eq('email', formData.email);
-
-          if (updateError) throw updateError;
-        } else {
-          // If it's a completely new partner
-          const { error: profileError } = await supabase
-            .from('partner_users')
-            .insert([
-              {
-                id: userId,
-                email: formData.email,
-                company_name: formData.nomInstitut,
-                contact_name: formData.contactName,
-                phone: formData.phone,
-                address: formData.rue,
-                city: formData.ville,
-                zip: formData.npa,
-                status: 'pending'
-              }
-            ]);
-
-          if (profileError) throw profileError;
-        }
-      }
-
-      // 3. Insert into prospects (ALWAYS - This is what Jorge sees in the CRM)
-      const { error: prospectError } = await supabase
-        .from('prospects')
-        .insert([
-          {
-            company_name: formData.nomInstitut,
-            canton: formData.canton,
-            contact_first_name: firstName,
-            contact_last_name: lastName || firstName,
-            contact_email: formData.email,
-            contact_phone: formData.phone,
-            company_type: formData.typeEtablissement.toUpperCase(),
-            source: 'LANDING_PAGE',
-            pipeline_stage: 'nouveau',
-            lead_score: 0,
-            is_premium_candidate: formData.programme === 'premium'
-          }
-        ]);
-
-      if (prospectError) throw prospectError;
-
-      setFormStatus('SUCCESS');
-
-      // Reset form fields
-      setFormData({
-        nomInstitut: '',
-        typeEtablissement: 'institut',
-        tva: '',
-        contactName: '',
-        fonction: 'gerante',
-        email: '',
-        password: '',
-        phone: '',
-        rue: '',
-        npa: '',
-        ville: '',
-        canton: 'Geneve',
-        programme: 'indecis',
-        conditions: false
-      });
-
-      // Reset status after 5s
-      setTimeout(() => setFormStatus('IDLE'), 5000);
-
-    } catch (err: any) {
-      console.error('Submission technical error:', err);
-
-      // MASK technical errors for a better UX
-      const isAbortError = err.name === 'AbortError' || (err.message && err.message.includes('aborted'));
-      const isAuthDisabled = err.message && err.message.includes('Signups not allowed');
-
-      if (isAbortError || isAuthDisabled) {
-        // These are not "real" errors for the customer experience
-        setFormStatus('SUCCESS');
-      } else {
-        setErrorMessage(err.message || 'Une erreur est survenue lors de l\'envoi du formulaire.');
-        setFormStatus('ERROR');
-      }
-    }
+  const handleApplyNow = () => {
+    window.open(EXTERNAL_FORM_URL, '_blank');
   };
 
-
-  const scrollToForm = () => {
-    document.getElementById('formulaire')?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToInfo = () => {
+    document.getElementById('postuler')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
@@ -223,7 +72,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
               Espace Partenaire
             </button>
             <button
-              onClick={scrollToForm}
+              onClick={handleApplyNow}
               className="bg-derma-black text-white px-6 py-2.5 rounded text-xs uppercase tracking-widest hover:bg-derma-gold transition-colors"
             >
               Devenir Partenaire →
@@ -252,10 +101,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
 
             <div className="flex flex-col sm:flex-row gap-4">
               <button
-                onClick={scrollToForm}
+                onClick={handleApplyNow}
                 className="bg-derma-gold hover:bg-[#B08D55] text-white px-8 py-4 text-sm uppercase tracking-widest font-semibold rounded shadow-premium hover:shadow-premium-hover transition-all transform hover:-translate-y-1"
               >
-                Planifier un rendez-vous conseil
+                Postuler au Partenariat
               </button>
               <div className="flex items-center gap-2 text-sm text-gray-500 px-4 py-3 bg-white border border-gray-100 rounded shadow-sm">
                 <span className="text-green-500">🎁</span> 1ère livraison OFFERTE
@@ -365,8 +214,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
               ))}
             </ul>
 
-            <button onClick={scrollToForm} className="w-full py-4 bg-derma-blue text-white rounded text-sm font-semibold hover:bg-derma-blueDark transition-colors">
-              PLANIFIER RDV STANDARD →
+            <button onClick={handleApplyNow} className="w-full py-4 bg-derma-blue text-white rounded text-sm font-semibold hover:bg-derma-blueDark transition-colors">
+              REJOINDRE LE PROGRAMME →
             </button>
           </div>
 
@@ -415,8 +264,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
               ))}
             </ul>
 
-            <button onClick={scrollToForm} className="w-full py-4 bg-gradient-to-r from-derma-gold to-[#D4B87C] text-white rounded text-sm font-semibold hover:shadow-lg transition-all btn-shine">
-              PLANIFIER RDV PREMIUM →
+            <button onClick={handleApplyNow} className="w-full py-4 bg-gradient-to-r from-derma-gold to-[#D4B87C] text-white rounded text-sm font-semibold hover:shadow-lg transition-all btn-shine">
+              POSTULER POUR LE PREMIUM →
             </button>
           </div>
         </div>
@@ -465,7 +314,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
             <div className="hidden md:block absolute top-6 left-0 w-full h-0.5 bg-gray-100 -z-10"></div>
 
             {[
-              { num: "01", title: "Postulez", desc: "Formulaire 2 min", detail: "Infos institut" },
+              { num: "01", title: "Postulez", desc: "Formulaire en ligne", detail: "Infos institut" },
               { num: "02", title: "Conseiller", desc: "RDV en 48h", detail: "Appel dédié" },
               { num: "03", title: "Commandez", desc: "1ère commande", detail: "Livraison offerte" },
               { num: "04", title: "Formation", desc: "Accès Academy", detail: "Certificat KRX" },
@@ -528,178 +377,58 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
         </div>
       </section>
 
-      {/* 8. FORM SECTION */}
-      <section id="formulaire" className="py-24 px-6 bg-white relative">
-        <div className="max-w-3xl mx-auto bg-white shadow-2xl rounded-xl border border-gray-100 overflow-hidden relative z-10">
-          <div className="bg-derma-black p-8 text-center text-white">
-            <h2 className="font-oswald text-2xl md:text-3xl uppercase tracking-wide mb-2">Planifier votre rendez-vous conseil</h2>
-            <p className="text-gray-400 text-sm">Un expert vous contactera sous 48-72h</p>
+      {/* 8. APPLICATION INFO SECTION */}
+      <section id="postuler" className="py-24 px-6 bg-[#FAFAF8] relative">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-derma-gold/10 text-derma-gold rounded-full text-[10px] font-bold uppercase tracking-wider mb-8">
+            Accès Exclusif aux Professionnels
           </div>
 
-          <div className="p-8 md:p-12">
-            {formStatus === 'SUCCESS' ? (
-              <div
-                className="text-center py-12 animate-fade-in"
-              >
-                <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Check size={40} />
-                </div>
-                <h3 className="font-oswald text-2xl text-derma-black mb-2">Demande Envoyée !</h3>
-                <p className="text-gray-500">Merci. Un conseiller DermaKor vous contactera muy pronto.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleFormSubmit} className="space-y-8">
-                {formStatus === 'ERROR' && (
-                  <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
-                    <p className="text-sm text-red-700">{errorMessage}</p>
-                  </div>
-                )}
-                {/* 1. Institut */}
-                <div className="space-y-4">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-derma-gold border-b border-gray-100 pb-2">Informations Institut</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Nom de l'institut *</label>
-                      <input
-                        required
-                        type="text"
-                        value={formData.nomInstitut}
-                        onChange={e => setFormData({ ...formData, nomInstitut: e.target.value })}
-                        className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-derma-gold focus:ring-1 focus:ring-derma-gold outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Type *</label>
-                      <select
-                        className="w-full border border-gray-300 rounded p-2.5 text-sm bg-white"
-                        value={formData.typeEtablissement}
-                        onChange={e => setFormData({ ...formData, typeEtablissement: e.target.value })}
-                      >
-                        <option value="institut">Institut de beauté</option>
-                        <option value="spa">Spa / Wellness</option>
-                        <option value="clinique">Clinique esthétique</option>
-                        <option value="medical">Cabinet médical</option>
-                        <option value="autre">Autre</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
+          <h2 className="font-oswald text-3xl md:text-5xl uppercase tracking-wide text-derma-black mb-8 leading-tight">
+            Devenir Partenaire <span className="text-derma-gold">DermaKor Swiss</span>
+          </h2>
 
-                {/* 2. Contact */}
-                <div className="space-y-4">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-derma-gold border-b border-gray-100 pb-2">Contact Principal</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Nom et Prénom *</label>
-                      <input
-                        required
-                        type="text"
-                        value={formData.contactName}
-                        onChange={e => setFormData({ ...formData, contactName: e.target.value })}
-                        className="w-full border border-gray-300 rounded p-2.5 text-sm outline-none focus:border-derma-gold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Email Pro *</label>
-                      <input
-                        required
-                        type="email"
-                        value={formData.email}
-                        onChange={e => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full border border-gray-300 rounded p-2.5 text-sm outline-none focus:border-derma-gold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Mot de passe (Accès Portail) *</label>
-                      <input
-                        required
-                        type="password"
-                        placeholder="Min. 6 caractères"
-                        value={formData.password}
-                        onChange={e => setFormData({ ...formData, password: e.target.value })}
-                        className="w-full border border-gray-300 rounded p-2.5 text-sm outline-none focus:border-derma-gold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone *</label>
-                      <input
-                        required
-                        type="tel"
-                        placeholder="+41"
-                        value={formData.phone}
-                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                        className="w-full border border-gray-300 rounded p-2.5 text-sm outline-none focus:border-derma-gold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Canton *</label>
-                      <select
-                        className="w-full border border-gray-300 rounded p-2.5 text-sm bg-white"
-                        value={formData.canton}
-                        onChange={e => setFormData({ ...formData, canton: e.target.value })}
-                      >
-                        <option value="Geneve">Genève</option>
-                        <option value="Vaud">Vaud</option>
-                        <option value="Valais">Valais</option>
-                        <option value="Fribourg">Fribourg</option>
-                        <option value="Neuchatel">Neuchâtel</option>
-                        <option value="Jura">Jura</option>
-                        <option value="Berne">Berne</option>
-                        <option value="Zurich">Zurich</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
+          <div className="bg-white p-8 md:p-12 rounded-xl shadow-premium border border-derma-border">
+            <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
+              Pour maintenir l'excellence de notre réseau, l'accès au portail est réservé aux instituts agréés.
+              Veuillez remplir notre formulaire de demande de partenariat.
+            </p>
 
-                {/* 3. Program */}
-                <div className="space-y-4">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-derma-gold border-b border-gray-100 pb-2">Intérêt</h3>
-                  <div className="space-y-2">
-                    {[
-                      { val: 'standard', label: 'Programme Standard (CHF 800 initial)' },
-                      { val: 'premium', label: 'Programme Premium (CHF 1,500 initial) ⭐' },
-                      { val: 'indecis', label: 'Je souhaite être conseillé(e)' }
-                    ].map(opt => (
-                      <label key={opt.val} className="flex items-center gap-3 p-3 border border-gray-200 rounded cursor-pointer hover:bg-gray-50 transition-colors">
-                        <input
-                          type="radio"
-                          name="prog"
-                          value={opt.val}
-                          checked={formData.programme === opt.val}
-                          onChange={e => setFormData({ ...formData, programme: e.target.value })}
-                          className="text-derma-gold focus:ring-derma-gold"
-                        />
-                        <span className="text-sm text-derma-black">{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+            <div className="h-[1px] w-20 bg-derma-gold/30 mx-auto mb-8"></div>
 
-                <div className="flex items-start gap-3 pt-4">
-                  <input
-                    required
-                    type="checkbox"
-                    id="conditions"
-                    checked={formData.conditions}
-                    onChange={e => setFormData({ ...formData, conditions: e.target.checked })}
-                    className="mt-1"
-                  />
-                  <label htmlFor="conditions" className="text-xs text-gray-500">
-                    J'accepte d'être contacté(e) par DermaKor Swiss pour discuter du partenariat. Je comprends que ceci est une demande de contact et non un engagement contractuel immédiat.
-                  </label>
-                </div>
+            <p className="text-derma-black font-medium mb-12">
+              Après validation par nuestra équipe de gestion, vous recevrez par email <br />
+              vos identifiants de connexion personnels pour accéder au catalogue.
+            </p>
 
-                <button
-                  type="submit"
-                  disabled={formStatus === 'LOADING'}
-                  className="w-full bg-derma-gold hover:bg-[#B08D55] text-white py-4 rounded text-sm uppercase tracking-widest font-bold shadow-lg transition-all flex justify-center items-center gap-2"
-                >
-                  {formStatus === 'LOADING' ? 'Envoi en cours...' : 'Planifier mon RDV Conseil →'}
-                </button>
-                <p className="text-center text-xs text-gray-400">🎁 1ère Livraison OFFERTE pour toute validation de partenariat</p>
+            <button
+              onClick={handleApplyNow}
+              className="bg-derma-black hover:bg-[#2C2C2C] text-white px-12 py-5 text-sm uppercase tracking-[0.2em] font-bold rounded shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-1 mb-6"
+            >
+              Remplir la demande de partenariat →
+            </button>
 
-              </form>
-            )}
+            <p className="text-[10px] text-gray-400 uppercase tracking-widest">
+              Temps de réponse estimé : 48h - 72h
+            </p>
+          </div>
+
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="space-y-2">
+              <CheckCircle className="text-derma-gold mx-auto" size={24} />
+              <h4 className="font-oswald uppercase text-sm">Validation IDE/TVA</h4>
+              <p className="text-xs text-gray-500">Contrôle de l'activité professionnelle</p>
+            </div>
+            <div className="space-y-2">
+              <Users className="text-derma-gold mx-auto" size={24} />
+              <h4 className="font-oswald uppercase text-sm">Appel de Conseil</h4>
+              <p className="text-xs text-gray-500">Étude de vos besoins spécifiques</p>
+            </div>
+            <div className="space-y-2">
+              <Zap className="text-derma-gold mx-auto" size={24} />
+              <h4 className="font-oswald uppercase text-sm">Activation Rapide</h4>
+              <p className="text-xs text-gray-500">Accès immédiat après approbation</p>
+            </div>
           </div>
         </div>
       </section>

@@ -17,15 +17,24 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
         window.location.href = '/';
     };
 
+    console.log('ProtectedRoute: Checking access...', {
+        path: location.pathname,
+        isAuthenticated,
+        isLoading,
+        hasUser: !!user,
+        userRole: user?.role
+    });
+
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-derma-cream">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-derma-gold"></div>
+            <div className="flex items-center justify-center min-h-screen bg-[#FAFAF8]">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#C0A76A]"></div>
             </div>
         );
     }
 
     if (!isAuthenticated) {
+        console.log('ProtectedRoute: Not authenticated, redirecting...');
         const isAdminPath = location.pathname.startsWith('/admin');
         const loginPath = isAdminPath ? '/admin/login' : '/login';
         return <Navigate to={loginPath} state={{ from: location }} replace />;
@@ -33,8 +42,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
 
     // AUTHENTICATED BUT NO PROFILE FOUND
     if (!user) {
+        console.warn('ProtectedRoute: Authenticated but NO PROFILE. Logging out...');
         handleLogoutAndHome();
-        return null;
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-[#FAFAF8]">
+                <p className="text-gray-400 font-oswald uppercase tracking-widest text-[10px]">Session Error - Resetting...</p>
+            </div>
+        );
     }
 
     // STATUS HANDLING FOR PARTNERS

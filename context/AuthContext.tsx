@@ -29,12 +29,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const fetchProfile = async (userId: string, email: string) => {
         try {
-            const masterAdmins = [
-                'jorge@dermakorswiss.com',
-                'torresjorge2812@gmail.com',
-                'jorgetorres2812@gmail.com',
-                'jorge.torres@dermakor.ch'
-            ];
+            const masterAdmins = ['jorge@dermakorswiss.com', 'jorge@dermakor.com', 'torresjorge2812@gmail.com', 'jorgetorres2812@gmail.com'];
 
             const normalizedEmail = (email || '').trim().toLowerCase();
 
@@ -122,6 +117,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }, 3000);
 
         const init = async () => {
+            console.log('AuthContext: Initializing session...');
             try {
                 const { data: { session }, error } = await supabase.auth.getSession();
                 if (error) {
@@ -130,16 +126,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     return;
                 }
 
+                console.log('AuthContext: Session result:', { hasSession: !!session, userEmail: session?.user?.email });
                 setSession(session);
                 if (session?.user) {
+                    console.log('AuthContext: Fetching profile for:', session.user.id);
                     await fetchProfile(session.user.id, session.user.email || '');
                 } else {
+                    console.log('AuthContext: No active session found.');
                     setIsLoading(false);
                 }
             } catch (err) {
                 console.error('AuthContext: Init exception:', err);
                 setIsLoading(false);
             } finally {
+                console.log('AuthContext: Init sequence complete.');
                 setIsLoading(false);
             }
         };

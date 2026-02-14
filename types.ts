@@ -1,3 +1,10 @@
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  order_index?: number;
+}
+
 export enum UserTier {
   STANDARD = 'STANDARD',
   PREMIUM = 'PREMIUM'
@@ -36,10 +43,17 @@ export interface Product {
   id: string;
   sku: string;
   name: string;
-  category: string;
-  price: number; // Legacy field, treated as Base Price if pricing object is missing
-  pricing?: ProductPricing; // New pricing engine configuration
+  category: string; // Legacy string for compatibility
+  categoryId?: string; // Reference to Category.id
+  price: number; // Partner Price (Base)
+  costPrice?: number; // Internal unit cost
+  retailPrice?: number; // Web sale price for profit calculation
+  pricing?: ProductPricing;
   stockStatus: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+  status?: 'ACTIVE' | 'OUT_OF_STOCK' | 'LOW_ROTATION';
+  stock_quantity?: number;
+  accumulated_profit?: number;
+  monthly_rotation?: number;
   description: string;
 }
 
@@ -95,6 +109,8 @@ export interface AdminProduct extends Product {
   stockCount: number;
   stdPrice: number;
   premPrice: number;
+  costPrice: number;
+  retailPrice: number;
 }
 
 export type TranslationKey =

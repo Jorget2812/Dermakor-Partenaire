@@ -12,6 +12,7 @@ import {
   Tag
 } from 'lucide-react';
 import { AdminPage } from '../types';
+import NotificationCenter from './NotificationCenter';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -27,16 +28,16 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavig
     return (
       <button
         onClick={() => onNavigate(id)}
-        className={`w-full flex items-center gap-3 px-6 py-3 text-sm transition-all duration-200 relative group
+        className={`w-full flex items-center gap-3 px-6 py-3.5 text-[13px] transition-luxury relative group
           ${isActive
-            ? 'text-[#C0A76A] bg-[#C0A76A]/10 border-l-[3px] border-[#C0A76A]'
-            : 'text-gray-400 hover:bg-white/5 hover:text-white border-l-[3px] border-transparent'
+            ? 'text-derma-blue bg-white shadow-sm border-r-4 border-derma-gold'
+            : 'text-derma-text-muted hover:text-derma-blue hover:bg-white/50'
           }`}
       >
-        <Icon size={18} className={isActive ? 'text-[#C0A76A]' : 'text-gray-500 group-hover:text-white'} />
-        <span className="font-medium tracking-wide">{label}</span>
+        <Icon size={18} className={isActive ? 'text-derma-gold' : 'text-derma-text-muted group-hover:text-derma-blue'} />
+        <span className={`font-semibold tracking-[0.02em] ${isActive ? 'text-derma-text' : ''}`}>{label}</span>
         {count !== undefined && (
-          <span className="ml-auto text-[10px] font-bold bg-[#C0A76A] text-[#1A1A1A] px-2 py-0.5 rounded-full">
+          <span className="ml-auto text-[10px] font-bold bg-derma-blue text-white px-2 py-0.5 rounded-full shadow-sm">
             {count}
           </span>
         )}
@@ -45,51 +46,51 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavig
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] flex font-sans">
+    <div className="min-h-screen bg-derma-bg flex font-sans">
 
-      {/* SIDEBAR */}
-      <aside className="w-[260px] bg-[#1A1A1A] flex-shrink-0 fixed h-full z-20 flex flex-col">
+      {/* SIDEBAR - Clinical Light Theme */}
+      <aside className="w-[280px] bg-derma-bg flex-shrink-0 fixed h-full z-20 flex flex-col border-r border-derma-border">
         {/* Header */}
-        <div className="p-8 pb-6 border-b border-white/10">
-          <h1 className="font-oswald text-white text-lg tracking-[0.15em] uppercase">
-            DermaKor <span className="text-[#C0A76A]">Swiss</span>
+        <div className="p-10 pb-8">
+          <h1 className="font-oswald text-derma-text text-xl tracking-[0.2em] uppercase">
+            DermaKor <span className="text-derma-gold">Swiss</span>
           </h1>
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Administration</p>
+          <p className="text-[9px] text-derma-text-muted uppercase font-bold tracking-[0.2em] mt-1.5 opacity-70">Medical Distribution</p>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-6 space-y-1 overflow-y-auto">
-          <NavItem id="dashboard" label="Dashboard" icon={LayoutDashboard} />
+        <nav className="flex-1 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+          <NavItem id="dashboard" label="PANEL EJECUTIVO" icon={LayoutDashboard} />
 
-          <div className="pt-4 pb-2 px-6">
-            <p className="text-[10px] uppercase text-gray-600 font-bold tracking-widest">Gestion</p>
+          <div className="pt-8 pb-3 px-8">
+            <p className="text-[10px] uppercase text-derma-text-muted font-black tracking-[0.25em] opacity-40">OPERATIVA</p>
           </div>
-          <NavItem id="partners" label="Partenaires" icon={Users} count={24} />
-          <NavItem id="orders" label="Commandes" icon={ShoppingBag} count={12} />
-          <NavItem id="catalog" label="Catalogue" icon={Package} />
-          <NavItem id="pricing" label="Prix & Remises" icon={Tag} />
+          <NavItem id="partners" label="PARTENAIRES" icon={Users} count={24} />
+          <NavItem id="orders" label="COMMANDES" icon={ShoppingBag} count={12} />
+          <NavItem id="catalog" label="INVENTAIRE" icon={Package} />
 
-          <div className="pt-4 pb-2 px-6">
-            <p className="text-[10px] uppercase text-gray-600 font-bold tracking-widest">Analyse</p>
+          <div className="pt-8 pb-3 px-8">
+            <p className="text-[10px] uppercase text-derma-text-muted font-black tracking-[0.25em] opacity-40">ESTRATEGIA</p>
           </div>
-          <NavItem id="reports" label="Rapports" icon={BarChart2} />
-          <NavItem id="settings" label="Configuration" icon={Settings} />
+          <NavItem id="pricing" label="STRATÉGIE & PRIX" icon={Tag} />
+          <NavItem id="reports" label="RAPPORTS" icon={BarChart2} />
+          <NavItem id="settings" label="CONFIGURATION" icon={Settings} />
         </nav>
 
         {/* User Footer */}
-        <div className="p-6 border-t border-white/10">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-full bg-[#C0A76A] text-[#1A1A1A] flex items-center justify-center font-bold font-oswald text-sm">
+        <div className="p-8 border-t border-derma-border bg-white/30">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-derma-blue text-white flex items-center justify-center font-bold font-oswald text-sm shadow-md">
               JT
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-medium text-white truncate">Jorge Torres</p>
-              <p className="text-[11px] text-gray-500 truncate">jorge@dermakor.ch</p>
+              <p className="text-sm font-bold text-derma-text truncate tracking-tight">Jorge Torres</p>
+              <p className="text-[10px] text-derma-text-muted truncate uppercase font-bold opacity-60">Directeur Général</p>
             </div>
           </div>
           <button
             onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 py-2 border border-white/20 rounded text-gray-400 text-xs hover:text-[#C0A76A] hover:border-[#C0A76A] hover:bg-[#C0A76A]/5 transition-all"
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-derma-border rounded-md text-derma-text-muted text-[11px] font-bold uppercase tracking-widest hover:text-derma-blue hover:border-derma-blue hover:shadow-clinical transition-luxury"
           >
             <LogOut size={14} /> Se déconnecter
           </button>
@@ -97,45 +98,43 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavig
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 ml-[260px] flex flex-col min-h-screen">
+      <main className="flex-1 ml-[280px] flex flex-col min-h-screen">
 
-        {/* TOP HEADER BAR */}
-        <header className="h-16 bg-white border-b border-[#E8E8E8] sticky top-0 z-10 px-8 flex items-center justify-between">
+        {/* TOP HEADER BAR - Clean & Minimalist */}
+        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-derma-border sticky top-0 z-40 px-10 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h2 className="font-oswald text-xl text-[#1A1A1A] uppercase tracking-wide">
-              {activePage.charAt(0).toUpperCase() + activePage.slice(1)}
+            <div className="h-8 w-1 bg-derma-gold rounded-full mr-2"></div>
+            <h2 className="font-oswald text-2xl text-derma-text uppercase tracking-widest">
+              {activePage === 'pricing' ? 'Stratégie de Marges' : activePage.toUpperCase()}
             </h2>
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className="relative hidden md:block">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="flex items-center gap-8">
+            <div className="relative group hidden lg:block">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-derma-text-muted group-focus-within:text-derma-blue transition-colors" />
               <input
                 type="text"
-                placeholder="Recherche globale..."
-                className="pl-9 pr-4 py-1.5 bg-[#FAFAF8] border border-[#E0E0E0] rounded text-sm text-[#1A1A1A] focus:outline-none focus:border-[#1A1A1A] w-64 transition-all"
+                placeholder="RECHERCHE GLOBALE..."
+                className="pl-12 pr-6 py-2.5 bg-derma-bg border border-transparent rounded-full text-[11px] font-bold tracking-widest text-derma-text focus:outline-none focus:bg-white focus:border-derma-blue w-72 transition-luxury"
               />
             </div>
 
-            <div className="h-6 w-px bg-gray-200"></div>
+            <div className="flex items-center gap-5">
+              <NotificationCenter />
 
-            <div className="flex items-center gap-4">
-              <button className="relative w-9 h-9 rounded-full bg-[#FAFAF8] border border-[#E8E8E8] flex items-center justify-center text-gray-500 hover:text-[#C0A76A] hover:border-[#C0A76A] transition-colors">
-                <Bell size={18} />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#EF4444] rounded-full text-[10px] font-bold text-white flex items-center justify-center">3</span>
-              </button>
+              <div className="h-10 w-px bg-derma-border mx-2"></div>
 
-              <div className="flex items-center gap-2 cursor-pointer hover:opacity-80">
-                <span className="text-sm text-gray-600">Admin</span>
-                <span className="text-xs font-bold text-[#C0A76A] bg-[#C0A76A]/10 px-2 py-0.5 rounded">SUPERUSER</span>
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-black text-derma-blue bg-derma-blue/5 px-2 py-0.5 rounded tracking-tighter uppercase mb-0.5">ADMIN SUPRÊME</span>
+                <span className="text-[12px] font-bold text-derma-text opacity-70">Suiza Hub</span>
               </div>
             </div>
           </div>
         </header>
 
         {/* CONTENT AREA */}
-        <div className="p-8">
-          <div className="max-w-[1400px] mx-auto animate-fade-in">
+        <div className="p-10 bg-derma-bg">
+          <div className="max-w-[1600px] mx-auto">
             {children}
           </div>
         </div>
