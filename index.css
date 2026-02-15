@@ -5,7 +5,7 @@
 :root {
   --derma-white: #FFFFFF;
   --derma-bg: #F4F6F8;
-  --derma-gold: #C6A75E;
+  --derma-gold: #C0A76A;
   --derma-blue: #3E5C76;
   --derma-text: #1A1A1A;
   --derma-text-muted: #636E72;
@@ -58,4 +58,73 @@ input[type=number] {
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #E0E0E0;
   border-radius: 10px;
+}
+
+/* Animations */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-5px);
+  }
+
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes pulse-gold {
+  0% {
+    box-shadow: 0 0 0 0 rgba(192, 167, 106, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(192, 167, 106, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(192, 167, 106, 0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+.animate-shake {
+  animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+}
+
+.animate-pulse-gold {
+  animation: pulse-gold 2s infinite;
 }

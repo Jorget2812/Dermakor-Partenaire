@@ -6,6 +6,7 @@ import { calculatePriceFromMarkup } from '../utils/finance';
 
 const AdminPricing: React.FC = () => {
     const [products, setProducts] = useState<any[]>([]);
+    const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -44,7 +45,13 @@ const AdminPricing: React.FC = () => {
             if (catSettings) {
                 setCategoryMargins(catSettings.value);
             }
-            setProducts(productsData || []);
+
+            const mappedProducts = (productsData || []).map(p => ({
+                ...p,
+                costPrice: p.cost_price,
+                retailPrice: p.retail_price
+            }));
+            setProducts(mappedProducts);
         } catch (err) {
             console.error(err);
         } finally {
@@ -60,19 +67,33 @@ const AdminPricing: React.FC = () => {
 
     const handleApplyStrategy = async () => {
         setIsSaving(true);
+        setError(null);
         try {
-            await supabase.from('site_settings').upsert({
+            console.log('Applying global strategy:', { simStd, simPrem });
+
+            // 1. Save global margins
+            const { error: settingsError } = await supabase.from('site_settings').upsert({
                 key: 'global_margins',
                 value: { standard: simStd, premium: simPrem }
             });
 
-            await supabase.from('site_settings').upsert({
+            if (settingsError) throw new Error("Erreur site_settings: " + settingsError.message);
+
+            // 2. Save category margins
+            const { error: catSettingsError } = await supabase.from('site_settings').upsert({
                 key: 'category_margins',
                 value: categoryMargins
             });
 
-            const updates = products.map(p => {
-                const cost = Number(p.cost_price || 0);
+            if (catSettingsError) throw new Error("Erreur site_settings_cat: " + catSettingsError.message);
+
+            // 3. Update all products
+            let updatedCount = 0;
+            let failureCount = 0;
+
+            // We update in batches or sequentially to avoid issues and check errors
+            const updatePromises = products.map(async (p) => {
+                const cost = Number(p.costPrice || 0);
                 const catMargin = categoryMargins[p.category || 'Otros'] || { std: simStd, prem: simPrem };
 
                 const finalStdMargin = catMargin.std || simStd;
@@ -81,7 +102,7 @@ const AdminPricing: React.FC = () => {
                 const stdPrice = calculatePriceFromMarkup(cost, finalStdMargin);
                 const premPrice = calculatePriceFromMarkup(cost, finalPremMargin);
 
-                return supabase.from('products').update({
+                const { error: updateError } = await supabase.from('products').update({
                     price: stdPrice,
                     pricing: {
                         basePrice: cost,
@@ -89,16 +110,32 @@ const AdminPricing: React.FC = () => {
                         premium: { type: 'FIXED', value: premPrice, margin: finalPremMargin }
                     }
                 }).eq('id', p.id);
+
+                if (updateError) {
+                    console.error(`Error updating product ${p.name}:`, updateError);
+                    failureCount++;
+                } else {
+                    updatedCount++;
+                }
             });
 
-            await Promise.all(updates);
+            await Promise.all(updatePromises);
+
             setStdMargin(simStd);
             setPremMargin(simPrem);
             setIsSimulating(false);
-            alert("Stratégie de prix appliquée à tout le catalogue.");
+
+            if (failureCount > 0) {
+                alert(`Stratégie appliquée avec ${failureCount} échecs. ${updatedCount} produits mis à jour.`);
+            } else {
+                alert(`Stratégie de prix appliquée à tout le catalogue (${updatedCount} produits).`);
+            }
+
             await fetchPricingData();
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            console.error("Critical error in handleApplyStrategy:", err);
+            setError(err.message || "Une erreur critique est survenue.");
+            alert("Erreur lors de l'application: " + (err.message || "Consultez la console"));
         } finally {
             setIsSaving(false);
         }
@@ -108,7 +145,7 @@ const AdminPricing: React.FC = () => {
         try {
             const { error } = await supabase.from('products').update({ cost_price: newCostPrice }).eq('id', id);
             if (error) throw error;
-            setProducts(products.map(p => p.id === id ? { ...p, cost_price: newCostPrice } : p));
+            setProducts(products.map(p => p.id === id ? { ...p, costPrice: newCostPrice } : p));
         } catch (err) { console.error(err); }
     };
 
@@ -300,7 +337,7 @@ const AdminPricing: React.FC = () => {
                             </thead>
                             <tbody className="divide-y divide-derma-border">
                                 {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase())).map((p) => {
-                                    const cost = Number(p.cost_price || 0);
+                                    const cost = Number(p.costPrice || 0);
                                     const catMargin = categoryMargins[p.category || 'Otros'] || { std: simStd, prem: simPrem };
                                     const stdP = calculatePriceFromMarkup(cost, catMargin.std || simStd);
                                     const premP = calculatePriceFromMarkup(cost, catMargin.prem || simPrem);

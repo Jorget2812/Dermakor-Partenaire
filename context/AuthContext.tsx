@@ -29,7 +29,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const fetchProfile = async (userId: string, email: string) => {
         try {
-            const masterAdmins = ['jorge@dermakorswiss.com', 'jorge@dermakor.com', 'torresjorge2812@gmail.com', 'jorgetorres2812@gmail.com'];
+            const masterAdmins = [
+                'jorge@dermakorswiss.com',
+                'jorge@dermakor.com',
+                'torresjorge2812@gmail.com',
+                'jorgetorres2812@gmail.com',
+                'georgitorres2812@gmail.com'
+            ];
 
             const normalizedEmail = (email || '').trim().toLowerCase();
 
@@ -55,6 +61,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 .single();
 
             if (error) {
+                // FALLBACK: Search by email if ID not found (autolink)
+                const { data: emailMatch, error: emailError } = await supabase
+                    .from('partner_users')
+                    .select('*')
+                    .eq('email', email)
+                    .single();
+
+                if (emailMatch && !emailError) {
+                    console.log('AuthContext: Found partner by email, autolinking ID...');
+                    // Update ID in the database to match the auth ID
+                    await supabase
+                        .from('partner_users')
+                        .update({ id: userId })
+                        .eq('email', email);
+
+                    setUser({
+                        id: userId,
+                        name: emailMatch.contact_name || 'Socio',
+                        instituteName: emailMatch.company_name,
+                        email: emailMatch.email,
+                        role: 'PARTENAIRE',
+                        status: emailMatch.status || 'pending',
+                        tier: (emailMatch.tier as UserTier) || UserTier.STANDARD,
+                        currentSpend: 0,
+                        monthlyGoal: 800
+                    });
+                    return;
+                }
+
                 const { data: adminData, error: adminError } = await supabase
                     .from('profiles')
                     .select('*')

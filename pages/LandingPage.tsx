@@ -72,7 +72,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
               Espace Partenaire
             </button>
             <button
-              onClick={handleApplyNow}
+              onClick={() => navigate('/register')}
               className="bg-derma-black text-white px-6 py-2.5 rounded text-xs uppercase tracking-widest hover:bg-derma-gold transition-colors"
             >
               Devenir Partenaire →
@@ -101,7 +101,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
 
             <div className="flex flex-col sm:flex-row gap-4">
               <button
-                onClick={handleApplyNow}
+                onClick={() => navigate('/register')}
                 className="bg-derma-gold hover:bg-[#B08D55] text-white px-8 py-4 text-sm uppercase tracking-widest font-semibold rounded shadow-premium hover:shadow-premium-hover transition-all transform hover:-translate-y-1"
               >
                 Postuler au Partenariat
@@ -214,7 +214,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
               ))}
             </ul>
 
-            <button onClick={handleApplyNow} className="w-full py-4 bg-derma-blue text-white rounded text-sm font-semibold hover:bg-derma-blueDark transition-colors">
+            <button onClick={() => navigate('/register')} className="w-full py-4 bg-derma-blue text-white rounded text-sm font-semibold hover:bg-derma-blueDark transition-colors">
               REJOINDRE LE PROGRAMME →
             </button>
           </div>
@@ -264,7 +264,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
               ))}
             </ul>
 
-            <button onClick={handleApplyNow} className="w-full py-4 bg-gradient-to-r from-derma-gold to-[#D4B87C] text-white rounded text-sm font-semibold hover:shadow-lg transition-all btn-shine">
+            <button onClick={() => navigate('/register')} className="w-full py-4 bg-gradient-to-r from-derma-gold to-[#D4B87C] text-white rounded text-sm font-semibold hover:shadow-lg transition-all btn-shine">
               POSTULER POUR LE PREMIUM →
             </button>
           </div>

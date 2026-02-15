@@ -23,7 +23,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onBackToPortal }) => {
       // Domain check removed as requested
 
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
 

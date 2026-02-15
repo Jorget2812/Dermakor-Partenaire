@@ -23,12 +23,14 @@ import {
 } from 'lucide-react';
 import { UserTier, Partner, AdminPage } from '../types';
 import { supabase } from '../utils/supabase';
+import { useLanguage } from '../context/LanguageContext';
 
 interface AdminPartnersProps {
     onNavigate: (page: AdminPage) => void;
 }
 
 const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
+    const { t } = useLanguage();
     const [partners, setPartners] = useState<Partner[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
@@ -179,7 +181,7 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                     email: newPartner.email,
                     city: newPartner.address, // Mapping city as seen in SQL
                     tier: newPartner.tier,
-                    status: 'PENDING'
+                    status: 'APPROVED'
                 }]);
 
             if (error) throw error;
@@ -209,16 +211,13 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
             REJECTED: 'bg-rose-50 text-rose-600 border-rose-100',
         }[status] || 'bg-gray-50 text-gray-500 border-gray-100';
 
-        const labels = {
-            APPROVED: 'Approuvé',
-            ACTIVE: 'Actif',
-            PENDING: 'En Attente',
-            REJECTED: 'Refusé'
-        }[status] || status;
+        const label = status === 'APPROVED' || status === 'ACTIVE' ? t('common_active') :
+            status === 'PENDING' ? t('partners_status_pending') :
+                status === 'REJECTED' ? t('partners_status_rejected') : status;
 
         return (
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${styles}`}>
-                {labels}
+                {label}
             </span>
         );
     };
@@ -229,10 +228,10 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h2 className="font-oswald text-2xl text-derma-black uppercase tracking-tight">
-                        {view === 'PARTNERS' ? 'Gestion des Partenaires' : 'Gestion des Prospects'}
+                        {view === 'PARTNERS' ? t('partners_title') : t('prospects_title')}
                     </h2>
                     <p className="text-gray-400 text-xs font-light tracking-wide">
-                        {view === 'PARTNERS' ? 'Administrez et validez les accès au portail élite.' : 'Visualisez les leads entrants du formulaire externe.'}
+                        {view === 'PARTNERS' ? t('partners_subtitle') : t('prospects_subtitle')}
                     </p>
                 </div>
                 <div className="flex gap-3">
@@ -241,26 +240,26 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                             onClick={() => setView('PARTNERS')}
                             className={`px-4 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all ${view === 'PARTNERS' ? 'bg-derma-black text-white shadow-sm' : 'text-gray-400 hover:text-derma-black'}`}
                         >
-                            Partenaires
+                            {t('admin_nav_partners')}
                         </button>
                         <button
                             onClick={() => setView('PROSPECTS')}
                             className={`px-4 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all ${view === 'PROSPECTS' ? 'bg-derma-black text-white shadow-sm' : 'text-gray-400 hover:text-derma-black'}`}
                         >
-                            Prospects
+                            {t('admin_nav_prospects')}
                         </button>
                     </div>
                     <button
                         onClick={handleExportCSV}
                         className="flex items-center gap-2 px-4 py-2 bg-white border border-derma-border rounded text-[11px] font-bold uppercase tracking-widest text-derma-black hover:bg-gray-50 transition-all"
                     >
-                        <Download size={14} /> Exporter CSV
+                        <Download size={14} /> {t('common_export')} CSV
                     </button>
                     <button
                         onClick={() => setIsAddingPartner(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-derma-black text-white rounded text-[11px] font-bold uppercase tracking-widest hover:bg-derma-gold transition-all shadow-lg"
                     >
-                        <Plus size={14} /> Nouveau Socio
+                        <Plus size={14} /> {t('partners_add_new')}
                     </button>
                 </div>
             </div>
@@ -277,9 +276,9 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                 : 'text-gray-400 hover:text-derma-black'
                                 }`}
                         >
-                            {filter === 'ALL' ? 'Tous' :
-                                filter === 'PENDING' ? 'En Attente' :
-                                    filter === 'APPROVED' ? 'Approuvés' : 'Refusés'}
+                            {filter === 'ALL' ? t('catalog_tab_all') :
+                                filter === 'PENDING' ? t('partners_status_pending') :
+                                    filter === 'APPROVED' ? t('partners_status_approved') : t('partners_status_rejected')}
                         </button>
                     ))}
                 </div>
@@ -288,7 +287,7 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                     <input
                         type="text"
-                        placeholder="Rechercher par institut, email ou contact..."
+                        placeholder={t('partners_search_placeholder')}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-2.5 bg-[#FAFAF8] border border-derma-border rounded text-sm focus:outline-none focus:border-derma-gold transition-colors font-light"
@@ -303,11 +302,11 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-[#FAFAF8] border-b border-derma-border">
-                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Socio / Institut</th>
-                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Contact & Email</th>
-                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Statut</th>
-                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Inscription</th>
-                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">{t('partners_table_institute')}</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">{t('partners_table_contact')}</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">{t('catalog_table_status')}</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">{t('partners_table_join_date')}</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] text-right">{t('partners_table_actions')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-derma-border">
@@ -372,7 +371,7 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                                         onClick={() => setSelectedPartner(partner)}
                                                         className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-derma-border rounded text-[10px] font-bold uppercase tracking-widest text-derma-black hover:border-derma-gold hover:text-derma-gold transition-all"
                                                     >
-                                                        <Eye size={12} /> Détails
+                                                        <Eye size={12} /> {t('partners_details')}
                                                     </button>
                                                 </div>
                                             </td>
@@ -432,14 +431,14 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                                             company_name: prospect.company_name,
                                                             contact_name: prospect.contact_name,
                                                             email: prospect.email,
-                                                            address: prospect.city,
+                                                            address: prospect.city || '',
                                                             tier: UserTier.STANDARD
                                                         });
                                                         setIsAddingPartner(true);
                                                     }}
                                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-derma-gold text-white rounded text-[10px] font-bold uppercase tracking-widest hover:bg-derma-black transition-all shadow-md ml-auto"
                                                 >
-                                                    <Plus size={12} /> Convertir
+                                                    <Plus size={12} /> {t('partners_convert')}
                                                 </button>
                                             </td>
                                         </tr>
@@ -452,7 +451,7 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
 
                 {/* Footer Info */}
                 <div className="px-6 py-4 bg-[#FAFAF8] border-t border-derma-border flex justify-between items-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    <span>{filteredPartners.length} Socio(s) Affiché(s)</span>
+                    <span>{filteredPartners.length} {t('partners_title')}</span>
                     <div className="flex items-center gap-4">
                         <span className="flex items-center gap-1.5"><ShieldCheck size={12} /> Sécurisé par Supabase</span>
                     </div>
@@ -490,10 +489,10 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                             <UserIcon size={14} className="text-derma-gold" /> {selectedPartner.contactName}
                                         </div>
                                     </div>
-                                    <div className="p-5 bg-[#FAFAF8] border border-derma-border rounded">
+                                    <div className="p-5 bg-[#FAFAF8] border border-derma-border rounded overflow-hidden">
                                         <span className="block text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-widest">Email Affaire</span>
-                                        <div className="text-derma-black font-bold flex items-center gap-2">
-                                            <Mail size={14} className="text-derma-gold" /> {selectedPartner.email}
+                                        <div className="text-derma-black font-bold flex items-start gap-2 text-[11px] break-all">
+                                            <Mail size={14} className="text-derma-gold mt-0.5 shrink-0" /> {selectedPartner.email}
                                         </div>
                                     </div>
                                 </div>

@@ -90,6 +90,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
 
     // ROLE CHECK
     if (allowedRoles && !allowedRoles.includes(user.role)) {
+        // If it's an admin trying to access a non-admin page and NOT allowed, redirect to admin
+        // If it's a partner trying to access an admin page, redirect to dashboard
         const redirectPath = user.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard';
         return <Navigate to={redirectPath} replace />;
     }

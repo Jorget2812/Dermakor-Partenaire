@@ -9,10 +9,12 @@ import {
   LogOut,
   Bell,
   Search,
-  Tag
+  Tag,
+  Globe
 } from 'lucide-react';
-import { AdminPage } from '../types';
+import { AdminPage, Language } from '../types';
 import NotificationCenter from './NotificationCenter';
+import { useLanguage } from '../context/LanguageContext';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -22,9 +24,11 @@ interface AdminLayoutProps {
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavigate, onLogout }) => {
+  const { language, setLanguage, t } = useLanguage();
 
-  const NavItem = ({ id, label, icon: Icon, count }: { id: AdminPage, label: string, icon: any, count?: number }) => {
+  const NavItem = ({ id, labelKey, icon: Icon, count }: { id: AdminPage, labelKey: string, icon: any, count?: number }) => {
     const isActive = activePage === id;
+    const label = t(labelKey as any);
     return (
       <button
         onClick={() => onNavigate(id)}
@@ -60,21 +64,50 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavig
 
         {/* Navigation */}
         <nav className="flex-1 py-4 space-y-1 overflow-y-auto custom-scrollbar">
-          <NavItem id="dashboard" label="PANEL EJECUTIVO" icon={LayoutDashboard} />
+          <NavItem id="dashboard" labelKey="admin_nav_dashboard" icon={LayoutDashboard} />
 
           <div className="pt-8 pb-3 px-8">
-            <p className="text-[10px] uppercase text-derma-text-muted font-black tracking-[0.25em] opacity-40">OPERATIVA</p>
+            <p className="text-[10px] uppercase text-derma-text-muted font-black tracking-[0.25em] opacity-40">{t('admin_nav_operational')}</p>
           </div>
-          <NavItem id="partners" label="PARTENAIRES" icon={Users} count={24} />
-          <NavItem id="orders" label="COMMANDES" icon={ShoppingBag} count={12} />
-          <NavItem id="catalog" label="INVENTAIRE" icon={Package} />
+          <NavItem id="partners" labelKey="admin_nav_partners" icon={Users} count={24} />
+          <NavItem id="orders" labelKey="admin_nav_orders" icon={ShoppingBag} count={12} />
+
+          <div className="space-y-1">
+            <NavItem id="products" labelKey="admin_nav_products" icon={Package} />
+            <div className={`overflow-hidden transition-all duration-300 ${(activePage === 'products' || activePage === 'collections' || activePage === 'inventory') ? 'max-h-40' : 'max-h-0'}`}>
+              <button
+                onClick={() => onNavigate('products')}
+                className={`w-full flex items-center gap-3 pl-14 py-2.5 text-[12px] transition-luxury relative group
+                  ${activePage === 'products' ? 'text-derma-blue font-bold' : 'text-derma-text-muted hover:text-derma-blue'}`}
+              >
+                <div className={`w-1.5 h-1.5 rounded-full ${activePage === 'products' ? 'bg-derma-gold' : 'bg-transparent border border-derma-border'}`}></div>
+                <span>{t('admin_nav_products')}</span>
+              </button>
+              <button
+                onClick={() => onNavigate('collections')}
+                className={`w-full flex items-center gap-3 pl-14 py-2.5 text-[12px] transition-luxury relative group
+                  ${activePage === 'collections' ? 'text-derma-blue font-bold' : 'text-derma-text-muted hover:text-derma-blue'}`}
+              >
+                <div className={`w-1.5 h-1.5 rounded-full ${activePage === 'collections' ? 'bg-derma-gold' : 'bg-transparent border border-derma-border'}`}></div>
+                <span>{t('admin_nav_collections')}</span>
+              </button>
+              <button
+                onClick={() => onNavigate('inventory')}
+                className={`w-full flex items-center gap-3 pl-14 py-2.5 text-[12px] transition-luxury relative group
+                  ${activePage === 'inventory' ? 'text-derma-blue font-bold' : 'text-derma-text-muted hover:text-derma-blue'}`}
+              >
+                <div className={`w-1.5 h-1.5 rounded-full ${activePage === 'inventory' ? 'bg-derma-gold' : 'bg-transparent border border-derma-border'}`}></div>
+                <span>{t('admin_nav_inventory')}</span>
+              </button>
+            </div>
+          </div>
 
           <div className="pt-8 pb-3 px-8">
-            <p className="text-[10px] uppercase text-derma-text-muted font-black tracking-[0.25em] opacity-40">ESTRATEGIA</p>
+            <p className="text-[10px] uppercase text-derma-text-muted font-black tracking-[0.25em] opacity-40">{t('admin_nav_strategy')}</p>
           </div>
-          <NavItem id="pricing" label="STRATÉGIE & PRIX" icon={Tag} />
-          <NavItem id="reports" label="RAPPORTS" icon={BarChart2} />
-          <NavItem id="settings" label="CONFIGURATION" icon={Settings} />
+          <NavItem id="pricing" labelKey="admin_nav_pricing" icon={Tag} />
+          <NavItem id="reports" labelKey="admin_nav_reports" icon={BarChart2} />
+          <NavItem id="settings" labelKey="admin_nav_settings" icon={Settings} />
         </nav>
 
         {/* User Footer */}
@@ -92,7 +125,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavig
             onClick={onLogout}
             className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-derma-border rounded-md text-derma-text-muted text-[11px] font-bold uppercase tracking-widest hover:text-derma-blue hover:border-derma-blue hover:shadow-clinical transition-luxury"
           >
-            <LogOut size={14} /> Se déconnecter
+            <LogOut size={14} /> {t('admin_logout')}
           </button>
         </div>
       </aside>
@@ -105,7 +138,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavig
           <div className="flex items-center gap-4">
             <div className="h-8 w-1 bg-derma-gold rounded-full mr-2"></div>
             <h2 className="font-oswald text-2xl text-derma-text uppercase tracking-widest">
-              {activePage === 'pricing' ? 'Stratégie de Marges' : activePage.toUpperCase()}
+              {activePage === 'pricing' ? t('admin_nav_pricing') : t(`admin_nav_${activePage}` as any)}
             </h2>
           </div>
 
@@ -114,12 +147,27 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavig
               <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-derma-text-muted group-focus-within:text-derma-blue transition-colors" />
               <input
                 type="text"
-                placeholder="RECHERCHE GLOBALE..."
+                placeholder={t('admin_search_placeholder')}
                 className="pl-12 pr-6 py-2.5 bg-derma-bg border border-transparent rounded-full text-[11px] font-bold tracking-widest text-derma-text focus:outline-none focus:bg-white focus:border-derma-blue w-72 transition-luxury"
               />
             </div>
 
             <div className="flex items-center gap-5">
+              {/* Language Switcher */}
+              <div className="flex bg-derma-bg p-1 rounded-full border border-derma-border">
+                {(['FR', 'DE', 'IT'] as Language[]).map((lang) => (
+                  <button
+                    key={lang}
+                    onClick={() => setLanguage(lang)}
+                    className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${language === lang ? 'bg-white text-derma-blue shadow-sm' : 'text-derma-text-muted hover:text-derma-text'}`}
+                  >
+                    {lang}
+                  </button>
+                ))}
+              </div>
+
+              <div className="h-10 w-px bg-derma-border mx-1"></div>
+
               <NotificationCenter />
 
               <div className="h-10 w-px bg-derma-border mx-2"></div>

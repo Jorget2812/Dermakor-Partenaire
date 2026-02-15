@@ -50,7 +50,8 @@ export interface Product {
   retailPrice?: number; // Web sale price for profit calculation
   pricing?: ProductPricing;
   stockStatus: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
-  status?: 'ACTIVE' | 'OUT_OF_STOCK' | 'LOW_ROTATION';
+  status?: 'ACTIVE' | 'DRAFT' | 'ARCHIVED' | 'OUT_OF_STOCK' | 'LOW_ROTATION';
+  channels?: number;
   stock_quantity?: number;
   accumulated_profit?: number;
   monthly_rotation?: number;
@@ -72,7 +73,7 @@ export interface AcademyResource {
 
 // --- ADMIN SPECIFIC TYPES ---
 
-export type AdminPage = 'dashboard' | 'partners' | 'orders' | 'catalog' | 'pricing' | 'reports' | 'settings';
+export type AdminPage = 'dashboard' | 'partners' | 'orders' | 'products' | 'collections' | 'inventory' | 'catalog' | 'pricing' | 'reports' | 'settings';
 
 export interface Partner {
   id: string;
@@ -183,6 +184,80 @@ export type TranslationKey =
   | 'dash_active_tier_premium'
   | 'dash_monthly_goal'
   | 'dash_view_all'
-  | 'history';
+  | 'history'
+  // Admin Navigation
+  | 'admin_nav_dashboard'
+  | 'admin_nav_partners'
+  | 'admin_nav_orders'
+  | 'admin_nav_products'
+  | 'admin_nav_collections'
+  | 'admin_nav_inventory'
+  | 'admin_nav_pricing'
+  | 'admin_nav_reports'
+  | 'admin_nav_settings'
+  | 'admin_nav_operational'
+  | 'admin_nav_strategy'
+  | 'admin_logout'
+  | 'admin_search_placeholder'
+  // Admin Catalog
+  | 'catalog_title'
+  | 'catalog_search_placeholder'
+  | 'catalog_tab_all'
+  | 'catalog_tab_active'
+  | 'catalog_tab_draft'
+  | 'catalog_tab_archived'
+  | 'catalog_metric_sales_rate'
+  | 'catalog_metric_inventory_days'
+  | 'catalog_metric_abc_analysis'
+  | 'catalog_table_product'
+  | 'catalog_table_status'
+  | 'catalog_table_inventory'
+  | 'catalog_table_category'
+  | 'catalog_table_channels'
+  | 'catalog_table_sku'
+  | 'catalog_table_unavailable'
+  | 'catalog_table_committed'
+  | 'catalog_table_available'
+  | 'catalog_table_on_hand'
+  // Admin Partners
+  | 'partners_title'
+  | 'prospects_title'
+  | 'partners_subtitle'
+  | 'prospects_subtitle'
+  | 'partners_table_institute'
+  | 'partners_table_contact'
+  | 'partners_table_join_date'
+  | 'partners_table_actions'
+  | 'partners_details'
+  | 'partners_convert'
+  | 'common_export'
+  | 'common_import'
+  | 'common_add_product'
+  | 'common_days'
+  | 'common_active'
+  | 'common_archived'
+  | 'common_draft'
+  | 'common_in_stock'
+  | 'common_no_results'
+  | 'catalog_table_title'
+  | 'catalog_table_conditions'
+  | 'catalog_drawer_anatomy'
+  | 'catalog_drawer_rotation'
+  | 'catalog_drawer_sold_this_month'
+  | 'catalog_drawer_accumulated_profit'
+  | 'catalog_drawer_total_benefit'
+  | 'catalog_drawer_total_benefit'
+  | 'catalog_drawer_logistics'
+  | 'catalog_drawer_physical_stock'
+  | 'catalog_drawer_units'
+  | 'catalog_drawer_edit_tech_sheet'
+  | 'partners_status_pending'
+  | 'partners_status_approved'
+  | 'partners_status_rejected'
+  | 'partners_add_new'
+  | 'admin_nav_prospects'
+  | 'partners_search_placeholder'
+  | 'partners_tab_partners'
+  | 'partners_tab_prospects';
 
 export type Translations = Record<Language, Record<TranslationKey, string>>;

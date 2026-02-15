@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import Order from './pages/Order';
 import Academy from './pages/Academy';
 import LandingPage from './pages/LandingPage';
+import RegistrationForm from './pages/RegistrationForm';
 import { useAuth } from './hooks/useAuth';
 
 // Admin Components
@@ -90,13 +91,13 @@ const AppContent: React.FC = () => {
       {/* Public Routes */}
       <Route path="/" element={<LandingPage onNavigateToLogin={() => navigate('/login')} />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<RegistrationForm />} />
       <Route path="/admin/login" element={<AdminLogin onBackToPortal={() => navigate('/')} />} />
 
-      {/* Partner Routes */}
       <Route
         path="/dashboard/*"
         element={
-          <ProtectedRoute allowedRoles={['PARTENAIRE']}>
+          <ProtectedRoute allowedRoles={['PARTENAIRE', 'ADMIN']}>
             <Layout user={user as any} onLogout={logout} activePage="dashboard" onNavigate={() => { }}>
               <Routes>
                 <Route index element={<Dashboard />} />
@@ -123,7 +124,10 @@ const AppContent: React.FC = () => {
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="partners" element={<AdminPartners onNavigate={(page) => navigate(`/admin/${page}`)} />} />
                 <Route path="orders" element={<AdminOrders />} />
-                <Route path="catalog" element={<AdminCatalog />} />
+                <Route path="products" element={<AdminCatalog mode="all" />} />
+                <Route path="collections" element={<AdminCatalog mode="collections" />} />
+                <Route path="inventory" element={<AdminCatalog mode="inventory" />} />
+                <Route path="catalog" element={<Navigate to="products" replace />} />
                 <Route path="pricing" element={<AdminPricing />} />
                 <Route path="reports" element={<AdminReports />} />
                 <Route path="settings" element={<AdminSettings />} />
