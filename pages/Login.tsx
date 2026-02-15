@@ -84,7 +84,7 @@ const Login: React.FC = () => {
         }
     };
 
-    const isPremium = tier === UserTier.PREMIUM;
+    const isPremium = tier !== UserTier.STANDARD;
 
     return (
         <div className="min-h-screen bg-[#1A1A1C] flex items-center justify-center p-6 relative overflow-hidden font-sans selection:bg-derma-gold/30">
@@ -127,14 +127,16 @@ const Login: React.FC = () => {
                         {/* Tier Selection */}
                         <div className="flex bg-[#1A1A1C] p-1 rounded-xl mb-10 border border-white/5">
                             <button
+                                type="button"
                                 onClick={() => setTier(UserTier.STANDARD)}
-                                className={`flex-1 py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-luxury ${!isPremium ? 'bg-[#3A3A3C] text-white shadow-lg' : 'text-white/30 hover:text-white/60'}`}
+                                className={`flex-1 py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-luxury ${tier === UserTier.STANDARD ? 'bg-[#3A3A3C] text-white shadow-lg' : 'text-white/30 hover:text-white/60'}`}
                             >
                                 Standard
                             </button>
                             <button
+                                type="button"
                                 onClick={() => setTier(UserTier.PREMIUM)}
-                                className={`flex-1 py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-luxury ${isPremium ? 'bg-derma-gold text-[#1A1A1C] shadow-lg' : 'text-white/30 hover:text-white/60'}`}
+                                className={`flex-1 py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-luxury ${tier === UserTier.PREMIUM ? 'bg-derma-gold text-[#1A1A1C] shadow-lg' : 'text-white/30 hover:text-white/60'}`}
                             >
                                 Premium
                             </button>

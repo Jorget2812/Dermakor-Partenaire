@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Product, UserTier } from '../types';
-import { Search, Info, TrendingUp, DollarSign, Percent, Save, RefreshCw, AlertCircle } from 'lucide-react';
+import { Search, Save, RefreshCw, AlertCircle, TrendingUp, Info } from 'lucide-react';
 import { supabase } from '../utils/supabase';
-import { calculatePriceFromMarkup } from '../utils/finance';
+import { PROFIT_RULES } from '../constants/financials';
 
 const AdminPricing: React.FC = () => {
     const [products, setProducts] = useState<any[]>([]);
@@ -11,45 +10,43 @@ const AdminPricing: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState<'GLOBAL' | 'CATEGORIES' | 'INDIVIDUAL'>('GLOBAL');
+    const [officialCategories, setOfficialCategories] = useState<{ id: string, name: string }[]>([]);
 
-    // Scaling Simulator State
-    const [partnersStd, setPartnersStd] = useState(10);
-    const [partnersPrem, setPartnersPrem] = useState(5);
-    const [avgTicket, setAvgTicket] = useState(1200);
-
-    // Global Margins
-    const [stdMargin, setStdMargin] = useState(50);
-    const [premMargin, setPremMargin] = useState(70);
-
-    // Category Margins State
+    // Configuration States
+    const [simStd, setSimStd] = useState(1.8);
+    const [simPrem, setSimPrem] = useState(2.3);
+    const [minMarginChf, setMinMarginChf] = useState(6);
     const [categoryMargins, setCategoryMargins] = useState<Record<string, { std: number, prem: number }>>({});
-
-    // Simulation for Margins
-    const [simStd, setSimStd] = useState(50);
-    const [simPrem, setSimPrem] = useState(70);
     const [isSimulating, setIsSimulating] = useState(false);
+
+    // Hierarchy Level Theme
+    const LEVEL_THEME = {
+        GLOBAL: { label: 'GLOBAL', color: 'bg-gray-100 text-gray-500 border-gray-200', iconColor: 'text-gray-400' },
+        CATEGORY: { label: 'CATÉGORIE', color: 'bg-blue-50 text-blue-600 border-blue-100', iconColor: 'text-blue-500' },
+        INDIVIDUAL: { label: 'INDIVIDUEL', color: 'bg-derma-gold/10 text-derma-gold border-derma-gold/20', iconColor: 'text-derma-gold' }
+    };
 
     const fetchPricingData = async () => {
         setIsLoading(true);
         try {
             const { data: productsData } = await supabase.from('products').select('*').order('name');
-            const { data: settingsData } = await supabase.from('site_settings').select('*').eq('key', 'global_margins').single();
-            const { data: catSettings } = await supabase.from('site_settings').select('*').eq('key', 'category_margins').single();
+            const { data: settingsData } = await supabase.from('site_settings').select('*');
+            const { data: categoriesData } = await supabase.from('categories').select('id, name').order('name');
 
-            if (settingsData) {
-                setStdMargin(settingsData.value.standard);
-                setPremMargin(settingsData.value.premium);
-                setSimStd(settingsData.value.standard);
-                setSimPrem(settingsData.value.premium);
-            }
-            if (catSettings) {
-                setCategoryMargins(catSettings.value);
-            }
+            const globalSet = settingsData?.find(s => s.key === 'global_pricing')?.value || { std_mult: 1.8, prem_mult: 2.3, min_margin_chf: 6 };
+            const categorySet = settingsData?.find(s => s.key === 'category_pricing')?.value || {};
+
+            setSimStd(globalSet.std_mult);
+            setSimPrem(globalSet.prem_mult);
+            setMinMarginChf(globalSet.min_margin_chf);
+            setCategoryMargins(categorySet);
+            setOfficialCategories(categoriesData || []);
 
             const mappedProducts = (productsData || []).map(p => ({
                 ...p,
                 costPrice: p.cost_price,
-                retailPrice: p.retail_price
+                retailPrice: p.retail_price,
+                pricing: p.pricing || {}
             }));
             setProducts(mappedProducts);
         } catch (err) {
@@ -63,324 +60,372 @@ const AdminPricing: React.FC = () => {
         fetchPricingData();
     }, []);
 
-    const categories = Array.from(new Set(products.map(p => p.category || 'Otros'))).sort();
+    const categories = officialCategories.map(c => c.name);
 
     const handleApplyStrategy = async () => {
         setIsSaving(true);
         setError(null);
         try {
-            console.log('Applying global strategy:', { simStd, simPrem });
-
-            // 1. Save global margins
+            // Save global margins
             const { error: settingsError } = await supabase.from('site_settings').upsert({
-                key: 'global_margins',
-                value: { standard: simStd, premium: simPrem }
+                key: 'global_pricing',
+                value: { std_mult: simStd, prem_mult: simPrem, min_margin_chf: minMarginChf }
             });
 
             if (settingsError) throw new Error("Erreur site_settings: " + settingsError.message);
 
-            // 2. Save category margins
+            // Save category margins
             const { error: catSettingsError } = await supabase.from('site_settings').upsert({
-                key: 'category_margins',
+                key: 'category_pricing',
                 value: categoryMargins
             });
 
             if (catSettingsError) throw new Error("Erreur site_settings_cat: " + catSettingsError.message);
 
-            // 3. Update all products
-            let updatedCount = 0;
-            let failureCount = 0;
-
-            // We update in batches or sequentially to avoid issues and check errors
-            const updatePromises = products.map(async (p) => {
-                const cost = Number(p.costPrice || 0);
-                const catMargin = categoryMargins[p.category || 'Otros'] || { std: simStd, prem: simPrem };
-
-                const finalStdMargin = catMargin.std || simStd;
-                const finalPremMargin = catMargin.prem || simPrem;
-
-                const stdPrice = calculatePriceFromMarkup(cost, finalStdMargin);
-                const premPrice = calculatePriceFromMarkup(cost, finalPremMargin);
-
-                const { error: updateError } = await supabase.from('products').update({
-                    price: stdPrice,
-                    pricing: {
-                        basePrice: cost,
-                        standard: { type: 'FIXED', value: stdPrice, margin: finalStdMargin },
-                        premium: { type: 'FIXED', value: premPrice, margin: finalPremMargin }
-                    }
-                }).eq('id', p.id);
-
-                if (updateError) {
-                    console.error(`Error updating product ${p.name}:`, updateError);
-                    failureCount++;
-                } else {
-                    updatedCount++;
-                }
-            });
-
-            await Promise.all(updatePromises);
-
-            setStdMargin(simStd);
-            setPremMargin(simPrem);
+            alert(`Stratégie de prix enregistrée avec succès.`);
             setIsSimulating(false);
-
-            if (failureCount > 0) {
-                alert(`Stratégie appliquée avec ${failureCount} échecs. ${updatedCount} produits mis à jour.`);
-            } else {
-                alert(`Stratégie de prix appliquée à tout le catalogue (${updatedCount} produits).`);
-            }
-
             await fetchPricingData();
         } catch (err: any) {
             console.error("Critical error in handleApplyStrategy:", err);
             setError(err.message || "Une erreur critique est survenue.");
-            alert("Erreur lors de l'application: " + (err.message || "Consultez la console"));
         } finally {
             setIsSaving(false);
         }
     };
 
-    const handleUpdateCostPrice = async (id: string, newCostPrice: number) => {
+    const resolveEffectivePricing = (product: any) => {
+        const cat = product.category || 'Otros';
+        const pPricing = product.pricing || {};
+
+        let level: 'GLOBAL' | 'CATEGORY' | 'INDIVIDUAL' = 'GLOBAL';
+        let stdMult = simStd;
+        let premMult = simPrem;
+
+        if (categoryMargins[cat]) {
+            level = 'CATEGORY';
+            stdMult = categoryMargins[cat].std || simStd;
+            premMult = categoryMargins[cat].prem || simPrem;
+        }
+
+        if (pPricing.std_mult || pPricing.prem_mult) {
+            level = 'INDIVIDUAL';
+            stdMult = pPricing.std_mult || stdMult;
+            premMult = pPricing.prem_mult || premMult;
+        }
+
+        const cost = Number(product.costPrice || 0);
+        const retail = Number(product.retailPrice || 0);
+
+        const stdPrice = retail / stdMult;
+        const premPrice = retail / premMult;
+        const stdMargin = stdPrice - cost;
+        const premMargin = premPrice - cost;
+
+        return { stdMult, premMult, stdPrice, premPrice, stdMargin, premMargin, level, cost, retail };
+    };
+
+    const handleUpdateIndividualMultiplier = async (id: string, std_mult: number | null, prem_mult: number | null) => {
+        const product = products.find(p => p.id === id);
+        if (!product) return;
+
         try {
-            const { error } = await supabase.from('products').update({ cost_price: newCostPrice }).eq('id', id);
+            const newPricing = { ...product.pricing, std_mult, prem_mult };
+            if (std_mult === null) delete newPricing.std_mult;
+            if (prem_mult === null) delete newPricing.prem_mult;
+
+            const { error } = await supabase.from('products').update({ pricing: newPricing }).eq('id', id);
             if (error) throw error;
-            setProducts(products.map(p => p.id === id ? { ...p, costPrice: newCostPrice } : p));
+
+            setProducts(products.map(p => p.id === id ? { ...p, pricing: newPricing } : p));
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleUpdateRetailPrice = async (id: string, newRetailPrice: number) => {
+        const product = products.find(p => p.id === id);
+        if (!product) return;
+
+        const { stdMult, premMult, cost } = resolveEffectivePricing(product);
+        const stdP = newRetailPrice / stdMult;
+        const premP = newRetailPrice / premMult;
+
+        if ((stdP - cost) < minMarginChf || (premP - cost) < minMarginChf) {
+            alert(`⚠️ Risque: Le PVC ${newRetailPrice} CHF ne permet pas de garantir la marge minimale de ${minMarginChf} CHF.`);
+            return;
+        }
+
+        try {
+            const { error } = await supabase.from('products').update({ retail_price: newRetailPrice }).eq('id', id);
+            if (error) throw error;
+            setProducts(products.map(p => p.id === id ? { ...p, retailPrice: newRetailPrice } : p));
         } catch (err) { console.error(err); }
     };
 
-    // Advanced Metrics
-    const projectedMonthlyRevenue = (partnersStd * avgTicket) + (partnersPrem * (avgTicket * 1.5));
-    const projectedMonthlyProfit = projectedMonthlyRevenue * (simStd / 100);
-    const scalingTarget = 100000;
-    const scalingCoverage = Math.min((projectedMonthlyRevenue / scalingTarget) * 100, 100);
+    const getSecurityLevel = (margin: number) => {
+        if (margin < minMarginChf) return { label: 'RISQUE', color: 'text-red-600 bg-red-50 border-red-100', dot: 'bg-red-500' };
+        if (margin < minMarginChf + 4) return { label: 'FAIBLE', color: 'text-orange-600 bg-orange-50 border-orange-100', dot: 'bg-orange-500' };
+        if (margin < minMarginChf + 10) return { label: 'OPTIMAL', color: 'text-emerald-600 bg-emerald-50 border-emerald-100', dot: 'bg-emerald-500' };
+        return { label: 'PREMIUM', color: 'text-derma-gold bg-derma-gold/5 border-derma-gold/20', dot: 'bg-derma-gold' };
+    };
 
     return (
-        <div className="space-y-10">
-            {/* Header & Simulator */}
-            <div className="bg-white border border-derma-border rounded-2xl p-10 shadow-premium relative overflow-hidden">
-                <div className="relative z-10 flex flex-col lg:flex-row gap-12">
-                    <div className="flex-1 space-y-8">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h1 className="font-oswald text-3xl uppercase tracking-tighter text-derma-text">Intelligence de Prix</h1>
-                                <p className="text-[10px] text-derma-text-muted font-black uppercase tracking-[0.3em] mt-1 opacity-60">Stratégie de Marges & Escalade</p>
-                            </div>
-                            <div className="flex bg-derma-bg/50 p-1 rounded-xl border border-derma-border">
-                                {['GLOBAL', 'CATEGORIES', 'INDIVIDUAL'].map((t) => (
-                                    <button
-                                        key={t}
-                                        onClick={() => setActiveTab(t as any)}
-                                        className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-luxury
-                                            ${activeTab === t ? 'bg-white text-derma-blue shadow-sm' : 'text-derma-text-muted hover:text-derma-text'}`}
-                                    >
-                                        {t}
-                                    </button>
-                                ))}
-                            </div>
+        <div className="space-y-8 animate-in fade-in duration-700">
+            {/* Strategy Header */}
+            <div className="bg-white border border-derma-border rounded-xl p-8 shadow-premium">
+                <div className="flex flex-col lg:flex-row justify-between gap-8">
+                    <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                            <TrendingUp className="text-derma-gold" size={24} />
+                            <h1 className="font-oswald text-2xl uppercase tracking-tight text-derma-text">Gouvernance des Prix</h1>
+                        </div>
+                        <p className="text-[11px] text-derma-text-muted font-bold uppercase tracking-widest opacity-60">Architecture Hiérarchique: Global &gt; Catégorie &gt; Individuel</p>
+                    </div>
+
+                    <div className="flex bg-derma-bg/40 p-1.5 rounded-xl border border-derma-border shadow-inner">
+                        {['GLOBAL', 'CATEGORIES', 'INDIVIDUAL'].map((t) => (
+                            <button
+                                key={t}
+                                onClick={() => setActiveTab(t as any)}
+                                className={`px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300
+                                    ${activeTab === t ? 'bg-white text-derma-blue shadow-md' : 'text-derma-text-muted hover:text-derma-text'}`}
+                            >
+                                {t}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mt-10">
+                    <div className="lg:col-span-1 border-r border-derma-border pr-8 space-y-6">
+                        <div className="space-y-4">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-derma-blue">Configuration {activeTab}</h3>
+
+                            {activeTab === 'GLOBAL' && (
+                                <div className="space-y-6">
+                                    <div>
+                                        <div className="flex justify-between items-end mb-2">
+                                            <span className="text-[9px] font-bold uppercase text-derma-text-muted">Mult. Standard</span>
+                                            <input type="number" step="0.1" value={simStd}
+                                                onChange={(e) => { setSimStd(parseFloat(e.target.value)); setIsSimulating(true); }}
+                                                className="w-16 bg-transparent border-b border-derma-border text-right font-oswald text-lg text-derma-blue" />
+                                        </div>
+                                        <input type="range" min="1.0" max="3.0" step="0.1" value={simStd}
+                                            onChange={(e) => { setSimStd(parseFloat(e.target.value)); setIsSimulating(true); }}
+                                            className="w-full h-1.5 bg-gray-100 rounded-full appearance-none accent-derma-blue" />
+                                    </div>
+                                    <div>
+                                        <div className="flex justify-between items-end mb-2">
+                                            <span className="text-[9px] font-bold uppercase text-derma-text-muted">Mult. Premium</span>
+                                            <input type="number" step="0.1" value={simPrem}
+                                                onChange={(e) => { setSimPrem(parseFloat(e.target.value)); setIsSimulating(true); }}
+                                                className="w-16 bg-transparent border-b border-derma-border text-right font-oswald text-lg text-derma-gold" />
+                                        </div>
+                                        <input type="range" min="1.5" max="4.0" step="0.1" value={simPrem}
+                                            onChange={(e) => { setSimPrem(parseFloat(e.target.value)); setIsSimulating(true); }}
+                                            className="w-full h-1.5 bg-gray-100 rounded-full appearance-none accent-derma-gold" />
+                                    </div>
+                                    <div>
+                                        <div className="flex justify-between items-end mb-2">
+                                            <span className="text-[9px] font-bold uppercase text-derma-text-muted">Marge Min (CHF)</span>
+                                            <input type="number" value={minMarginChf}
+                                                onChange={(e) => { setMinMarginChf(parseFloat(e.target.value)); setIsSimulating(true); }}
+                                                className="w-16 bg-transparent border-b border-derma-border text-right font-oswald text-lg text-derma-text" />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'CATEGORIES' && (
+                                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {categories.map(cat => (
+                                        <div key={cat} className="p-3 bg-derma-bg/30 rounded-lg border border-derma-border">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-derma-text-muted block mb-2">{cat}</span>
+                                            <div className="grid grid-cols-2 gap-2 text-center">
+                                                <div>
+                                                    <input type="number" step="0.1" value={categoryMargins[cat]?.std || simStd}
+                                                        onChange={(e) => { setCategoryMargins(prev => ({ ...prev, [cat]: { ...(prev[cat] || { std: simStd, prem: simPrem }), std: parseFloat(e.target.value) } })); setIsSimulating(true); }}
+                                                        className="w-full bg-white border border-derma-border rounded py-1 font-oswald text-xs text-derma-blue text-center" />
+                                                    <span className="text-[7px] font-bold uppercase opacity-50">Std</span>
+                                                </div>
+                                                <div>
+                                                    <input type="number" step="0.1" value={categoryMargins[cat]?.prem || simPrem}
+                                                        onChange={(e) => { setCategoryMargins(prev => ({ ...prev, [cat]: { ...(prev[cat] || { std: simStd, prem: simPrem }), prem: parseFloat(e.target.value) } })); setIsSimulating(true); }}
+                                                        className="w-full bg-white border border-derma-border rounded py-1 font-oswald text-xs text-derma-gold text-center" />
+                                                    <span className="text-[7px] font-bold uppercase opacity-50">Prem</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {activeTab === 'INDIVIDUAL' && (
+                                <div className="text-center py-4 bg-blue-50/50 rounded-xl border border-blue-100">
+                                    <Info className="mx-auto text-blue-400 mb-2" size={16} />
+                                    <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest leading-relaxed">
+                                        Surclassez les prix directement dans le catalogue ci-dessous.
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-6">
-                                <div>
-                                    <div className="flex justify-between mb-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-derma-text">Simulation Partenaires</label>
-                                        <span className="text-derma-blue font-bold">{partnersStd + partnersPrem}</span>
-                                    </div>
-                                    <div className="flex gap-4 items-center">
-                                        <input type="range" min="0" max="100" value={partnersStd} onChange={(e) => setPartnersStd(parseInt(e.target.value))} className="flex-1 accent-derma-blue" />
-                                        <input type="range" min="0" max="50" value={partnersPrem} onChange={(e) => setPartnersPrem(parseInt(e.target.value))} className="flex-1 accent-derma-gold" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="flex justify-between mb-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-derma-text-muted">Volume d'achat moyen / mois</label>
-                                        <span className="text-derma-text font-bold">CHF {avgTicket}</span>
-                                    </div>
-                                    <input type="range" min="500" max="5000" step="100" value={avgTicket} onChange={(e) => setAvgTicket(parseInt(e.target.value))} className="w-full transition-all" />
-                                </div>
+                        <button
+                            onClick={handleApplyStrategy}
+                            disabled={!isSimulating || isSaving}
+                            className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 font-black text-[11px] uppercase tracking-[0.2em] transition-all
+                                ${isSimulating ? 'bg-derma-gold text-white shadow-lg hover:brightness-110 active:scale-95' : 'bg-gray-50 text-gray-300 border border-gray-100 cursor-not-allowed'}`}
+                        >
+                            {isSaving ? <RefreshCw className="animate-spin" size={14} /> : <Save size={14} />}
+                            Sauvegarder Plan
+                        </button>
+                    </div>
+
+                    <div className="lg:col-span-3 flex flex-col justify-end">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="bg-derma-bg/30 p-6 rounded-2xl border border-derma-border">
+                                <span className="text-[8px] font-black uppercase tracking-[0.3em] text-derma-text-muted mb-2 block">Seuil de Rentabilité</span>
+                                <div className="text-2xl font-oswald text-derma-text tracking-tighter">CHF {minMarginChf.toFixed(2)}</div>
+                                <div className="h-1 w-12 bg-derma-gold mt-3 rounded-full"></div>
+                                <p className="text-[8px] font-bold text-derma-text-muted mt-2 opacity-50 uppercase tracking-widest">Protection absolue de marge</p>
                             </div>
-                            <div className="p-8 bg-derma-blue rounded-2xl text-white shadow-xl flex flex-col justify-between">
-                                <div>
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Revenu Projeté Mensuel</h4>
-                                    <div className="text-4xl font-oswald tracking-tight">CHF {projectedMonthlyRevenue.toLocaleString()}</div>
-                                </div>
-                                <div className="mt-6">
-                                    <div className="flex justify-between items-end mb-2">
-                                        <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Progression vers 100k</span>
-                                        <span className="text-[12px] font-oswald text-derma-gold">{scalingCoverage.toFixed(1)}%</span>
-                                    </div>
-                                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                        <div className="h-full bg-derma-gold" style={{ width: `${scalingCoverage}%` }}></div>
-                                    </div>
-                                </div>
+                            <div className="bg-derma-blue p-6 rounded-2xl text-white shadow-xl relative overflow-hidden group">
+                                <Search className="absolute -right-4 -bottom-4 text-white/5 group-hover:scale-125 transition-transform duration-700" size={100} />
+                                <span className="text-[8px] font-black uppercase tracking-[0.3em] opacity-60 mb-2 block">Standard Index</span>
+                                <div className="text-2xl font-oswald tracking-tighter">x {simStd.toFixed(2)}</div>
+                                <p className="text-[8px] font-bold mt-2 opacity-60 uppercase tracking-widest">Mult. Global Appliqué</p>
+                            </div>
+                            <div className="bg-derma-black p-6 rounded-2xl text-white shadow-xl">
+                                <span className="text-[8px] font-black uppercase tracking-[0.3em] text-derma-gold mb-2 block">Premium Impact</span>
+                                <div className="text-2xl font-oswald tracking-tighter">x {simPrem.toFixed(2)}</div>
+                                <p className="text-[8px] font-bold mt-2 opacity-40 uppercase tracking-widest">Mult. Prestige & VIP</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
-                {/* Control Panel */}
-                <div className="lg:col-span-1 space-y-8">
-                    <div className="bg-white border border-derma-border rounded-xl p-8 shadow-sm">
-                        <h3 className="font-oswald text-sm uppercase tracking-widest mb-8 border-b border-derma-border pb-4">Configuration {activeTab}</h3>
-
-                        {activeTab === 'GLOBAL' && (
-                            <div className="space-y-8">
-                                <div>
-                                    <div className="flex justify-between items-end mb-3">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-derma-text-muted opacity-60">Markup Standard</label>
-                                        <span className="text-xl font-oswald text-derma-blue">{simStd}%</span>
-                                    </div>
-                                    <input type="range" min="0" max="150" step="5" value={simStd} onChange={(e) => { setSimStd(parseInt(e.target.value)); setIsSimulating(true); }} className="w-full accent-derma-blue" />
-                                </div>
-                                <div>
-                                    <div className="flex justify-between items-end mb-3">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-derma-text-muted opacity-60">Markup Premium</label>
-                                        <span className="text-xl font-oswald text-derma-gold">{simPrem}%</span>
-                                    </div>
-                                    <input type="range" min="0" max="150" step="5" value={simPrem} onChange={(e) => { setSimPrem(parseInt(e.target.value)); setIsSimulating(true); }} className="w-full accent-derma-gold" />
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'CATEGORIES' && (
-                            <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                {categories.map(cat => (
-                                    <div key={cat} className="p-4 bg-derma-bg/30 rounded-lg border border-derma-border group">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-derma-text block mb-3 group-hover:text-derma-blue transition-colors">{cat}</span>
-                                        <div className="flex gap-4">
-                                            <div className="flex-1">
-                                                <input
-                                                    type="number"
-                                                    value={categoryMargins[cat]?.std || simStd}
-                                                    onChange={(e) => {
-                                                        const val = parseInt(e.target.value);
-                                                        setCategoryMargins(prev => ({ ...prev, [cat]: { ...prev[cat], std: val } }));
-                                                        setIsSimulating(true);
-                                                    }}
-                                                    className="w-full bg-white border border-derma-border rounded px-2 py-1 text-xs font-oswald"
-                                                />
-                                                <span className="text-[8px] font-black text-derma-text-muted uppercase mt-1 block">STD %</span>
-                                            </div>
-                                            <div className="flex-1">
-                                                <input
-                                                    type="number"
-                                                    value={categoryMargins[cat]?.prem || simPrem}
-                                                    onChange={(e) => {
-                                                        const val = parseInt(e.target.value);
-                                                        setCategoryMargins(prev => ({ ...prev, [cat]: { ...prev[cat], prem: val } }));
-                                                        setIsSimulating(true);
-                                                    }}
-                                                    className="w-full bg-white border border-derma-border rounded px-2 py-1 text-xs font-oswald"
-                                                />
-                                                <span className="text-[8px] font-black text-derma-text-muted uppercase mt-1 block">PREM %</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {activeTab === 'INDIVIDUAL' && (
-                            <div className="text-center py-6">
-                                <p className="text-[10px] text-derma-text-muted font-bold uppercase tracking-widest opacity-50">Edita directamente en la tabla de la derecha</p>
-                            </div>
-                        )}
-
-                        <div className="mt-10 border-t border-derma-border pt-8">
-                            <button
-                                onClick={handleApplyStrategy}
-                                disabled={!isSimulating || isSaving}
-                                className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 font-black text-[11px] uppercase tracking-[0.2em] transition-luxury
-                                    ${isSimulating
-                                        ? 'bg-derma-gold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5'
-                                        : 'bg-derma-bg text-derma-text-muted border border-derma-border opacity-50 cursor-not-allowed'}`}
-                            >
-                                {isSaving ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
-                                Appliquer Stratégie
-                            </button>
-                        </div>
+            {/* Catalog Grid */}
+            <div className="bg-white border border-derma-border rounded-xl shadow-premium overflow-hidden">
+                <div className="p-6 border-b border-derma-border bg-derma-bg/10 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="relative w-full md:w-96">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-derma-text-muted opacity-40" size={16} />
+                        <input
+                            type="text"
+                            placeholder="RECHERCHER SKU OU NOM..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-12 pr-6 py-3 bg-white border border-derma-border rounded-xl text-[10px] font-black tracking-widest uppercase focus:ring-2 focus:ring-derma-blue/10 transition-all shadow-clinical"
+                        />
                     </div>
                 </div>
 
-                {/* Data Table */}
-                <div className="lg:col-span-3 bg-white border border-derma-border rounded-xl shadow-premium overflow-hidden flex flex-col h-full">
-                    <div className="p-8 border-b border-derma-border bg-derma-bg/20 flex justify-between items-center">
-                        <div>
-                            <h3 className="font-oswald text-xl uppercase tracking-widest text-derma-text">Anatomie des Prix</h3>
-                            <p className="text-[10px] text-derma-text-muted uppercase font-bold tracking-[0.15em] mt-1 opacity-60">Calcul dynamique basé sur {activeTab}</p>
-                        </div>
-                        <div className="relative">
-                            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-derma-text-muted" />
-                            <input
-                                type="text"
-                                placeholder="FILTRER SKU..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-12 pr-6 py-2.5 bg-white border border-derma-border rounded-full text-[10px] font-bold tracking-[0.15em] w-64 focus:outline-none focus:border-derma-blue focus:ring-4 focus:ring-derma-blue/5 transition-luxury shadow-clinical"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-white border-b border-derma-border text-[9px] uppercase font-black tracking-[0.2em] text-derma-text-muted">
-                                    <th className="px-8 py-6">Produit & Catégorie</th>
-                                    <th className="px-8 py-6">Cout Unit.</th>
-                                    <th className="px-8 py-6 text-derma-blue bg-derma-blue/[0.02]">Standard</th>
-                                    <th className="px-8 py-6 text-derma-gold bg-derma-gold/[0.02]">Premium</th>
-                                    <th className="px-8 py-6 text-right">Profit Est.</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-derma-border">
-                                {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase())).map((p) => {
-                                    const cost = Number(p.costPrice || 0);
-                                    const catMargin = categoryMargins[p.category || 'Otros'] || { std: simStd, prem: simPrem };
-                                    const stdP = calculatePriceFromMarkup(cost, catMargin.std || simStd);
-                                    const premP = calculatePriceFromMarkup(cost, catMargin.prem || simPrem);
-                                    const profit = stdP - cost;
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-white border-b border-derma-border text-[9px] uppercase font-black tracking-[0.2em] text-derma-text-muted">
+                                <th className="px-8 py-6">Intelligence Produit</th>
+                                <th className="px-8 py-6">Cout Unit.</th>
+                                <th className="px-8 py-6">PVC (Conseillé)</th>
+                                <th className="px-8 py-6">Rendu Standard</th>
+                                <th className="px-8 py-6">Rendu Premium</th>
+                                <th className="px-8 py-6 text-right">Protection</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-derma-border">
+                            {products
+                                .filter(p => !searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase()))
+                                .map((p) => {
+                                    const pricing = resolveEffectivePricing(p);
+                                    const theme = LEVEL_THEME[pricing.level];
+                                    const security = getSecurityLevel(pricing.stdMargin);
 
                                     return (
-                                        <tr key={p.id} className="hover:bg-derma-bg/30 transition-luxury group">
+                                        <tr key={p.id} className="hover:bg-derma-bg/20 transition-all group">
                                             <td className="px-8 py-6">
-                                                <div className="text-[13px] font-bold text-derma-text group-hover:text-derma-blue transition-colors">{p.name}</div>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-[9px] text-derma-text-muted font-black tracking-widest uppercase opacity-40">{p.sku}</span>
-                                                    <span className="text-[8px] bg-derma-bg px-2 py-0.5 rounded text-derma-blue font-black uppercase tracking-tighter">{p.category || 'Otros'}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-2 h-2 rounded-full ${security.dot} animate-pulse`}></div>
+                                                    <div>
+                                                        <div className="text-[13px] font-bold text-derma-text group-hover:text-derma-blue transition-colors">{p.name}</div>
+                                                        <div className="flex items-center gap-2 mt-1.5">
+                                                            <span className="text-[8px] font-black text-derma-text-muted opacity-40 uppercase tracking-widest">{p.sku}</span>
+                                                            <span className={`text-[7px] px-2 py-0.5 rounded border font-black uppercase tracking-tighter ${theme.color}`}>
+                                                                {theme.label}: {p.category || 'Otros'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-8 py-6">
-                                                <div className="relative w-32">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-derma-text-muted opacity-30 uppercase">CHF</span>
+                                                <div className="text-xs font-oswald font-bold text-derma-text opacity-70">CHF {pricing.cost.toFixed(2)}</div>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <div className="relative w-32 group/pvc">
                                                     <input
                                                         type="number"
-                                                        defaultValue={cost.toFixed(2)}
-                                                        onBlur={(e) => handleUpdateCostPrice(p.id, parseFloat(e.target.value))}
-                                                        className="w-full pl-10 pr-4 py-2 bg-derma-bg/50 border border-transparent rounded-lg text-sm font-oswald text-derma-text focus:outline-none focus:bg-white focus:border-derma-blue transition-luxury"
+                                                        defaultValue={pricing.retail.toFixed(2)}
+                                                        onBlur={(e) => handleUpdateRetailPrice(p.id, parseFloat(e.target.value))}
+                                                        className={`w-full bg-derma-bg/30 border border-derma-border rounded-lg px-3 py-2 text-sm font-oswald font-bold focus:bg-white transition-all
+                                                            ${pricing.stdMargin < minMarginChf ? 'bg-red-50 border-red-300 text-red-600' : 'text-derma-text'}`}
                                                     />
+                                                    <div className="absolute -top-2 -right-2 hidden group-hover/pvc:flex">
+                                                        <div className="bg-derma-black text-[8px] font-black text-white px-2 py-0.5 rounded shadow-xl uppercase tracking-widest">
+                                                            Modifier PVC
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 bg-derma-blue/[0.02] font-oswald text-[15px] text-derma-blue font-bold tracking-tight">
-                                                CHF {stdP.toFixed(2)}
+                                            <td className="px-8 py-6">
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-oswald text-sm font-bold text-derma-blue">CHF {pricing.stdPrice.toFixed(2)}</span>
+                                                        <input
+                                                            type="number"
+                                                            step="0.1"
+                                                            placeholder={pricing.stdMult.toFixed(2)}
+                                                            onBlur={(e) => handleUpdateIndividualMultiplier(p.id, parseFloat(e.target.value) || null, null)}
+                                                            className="w-12 bg-transparent border-b border-derma-border/50 text-[10px] text-center font-bold text-derma-blue/50 focus:border-derma-blue focus:text-derma-blue outline-none"
+                                                        />
+                                                    </div>
+                                                    <span className="text-[8px] font-bold text-derma-text-muted uppercase opacity-40">Profit: +{pricing.stdMargin.toFixed(2)}</span>
+                                                </div>
                                             </td>
-                                            <td className="px-8 py-6 bg-derma-gold/[0.02] font-oswald text-[15px] text-derma-gold font-bold tracking-tight">
-                                                CHF {premP.toFixed(2)}
+                                            <td className="px-8 py-6">
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-oswald text-sm font-bold text-derma-gold">CHF {pricing.premPrice.toFixed(2)}</span>
+                                                        <input
+                                                            type="number"
+                                                            step="0.1"
+                                                            placeholder={pricing.premMult.toFixed(2)}
+                                                            onBlur={(e) => handleUpdateIndividualMultiplier(p.id, null, parseFloat(e.target.value) || null)}
+                                                            className="w-12 bg-transparent border-b border-derma-border/50 text-[10px] text-center font-bold text-derma-gold/50 focus:border-derma-gold focus:text-derma-gold outline-none"
+                                                        />
+                                                    </div>
+                                                    <span className="text-[8px] font-bold text-derma-text-muted uppercase opacity-40">Profit: +{pricing.premMargin.toFixed(2)}</span>
+                                                </div>
                                             </td>
                                             <td className="px-8 py-6 text-right">
-                                                <div className="flex flex-col items-end">
-                                                    <span className="text-[13px] font-oswald text-[#10B981] font-bold">+ CHF {profit.toFixed(2)}</span>
-                                                    <span className="text-[9px] font-black text-derma-text-muted uppercase tracking-widest opacity-40">marge brute</span>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <div className={`px-2.5 py-1 rounded-full border text-[8px] font-black uppercase tracking-[0.1em] flex items-center gap-2 ${security.color}`}>
+                                                        <div className={`w-1 h-1 rounded-full ${security.dot}`}></div>
+                                                        {security.label}
+                                                    </div>
+                                                    {pricing.level === 'INDIVIDUAL' && (
+                                                        <button
+                                                            onClick={() => handleUpdateIndividualMultiplier(p.id, null, null)}
+                                                            className="text-[7px] font-black text-derma-blue uppercase tracking-widest hover:underline mt-1"
+                                                        >
+                                                            Reset Inherit
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
                                     );
                                 })}
-                            </tbody>
-                        </table>
-                    </div>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

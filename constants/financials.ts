@@ -1,0 +1,5 @@
+export const PROFIT_RULES = {
+    MIN_MARGIN_CHF: 6,
+    MULTIPLIER_PREMIUM: 2.3,
+    MULTIPLIER_STANDARD: 1.8
+};

@@ -10,11 +10,20 @@ import {
   Bell,
   Search,
   Tag,
-  Globe
+  Globe,
+  Eye,
+  EyeOff,
+  TrendingUp,
+  Menu,
+  ChevronLeft,
+  GraduationCap
 } from 'lucide-react';
-import { AdminPage, Language } from '../types';
+import { AdminPage, Language, UserTier } from '../types';
 import NotificationCenter from './NotificationCenter';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../utils/supabase';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -25,6 +34,54 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavigate, onLogout }) => {
   const { language, setLanguage, t } = useLanguage();
+  const { toggleSimulation, isSimulatingPartner } = useAuth();
+  const navigate = useNavigate();
+  const [counts, setCounts] = React.useState({ orders: 0, partners: 0 });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(() => {
+    return localStorage.getItem('derma_sidebar_collapsed') === 'true';
+  });
+
+  React.useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        // Fetch orders count (only non-cancelled?)
+        const { count: orderCount, error: orderError } = await supabase
+          .from('orders')
+          .select('*', { count: 'exact', head: true });
+
+        // Fetch partners count
+        const { count: partnerCount, error: partnerError } = await supabase
+          .from('partner_users')
+          .select('*', { count: 'exact', head: true });
+
+        if (!orderError && !partnerError) {
+          setCounts({
+            orders: orderCount || 0,
+            partners: partnerCount || 0
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching admin counts:', err);
+      }
+    };
+
+    fetchCounts();
+  }, [activePage]); // Refresh when navigating or on mount
+
+  const handleToggleSimulation = async (tier?: UserTier) => {
+    await toggleSimulation(tier);
+    if (localStorage.getItem('derma_simulating_partner') === 'true') {
+      navigate('/dashboard');
+    } else {
+      navigate('/admin/dashboard');
+    }
+  };
+
+  const toggleSidebar = () => {
+    const newValue = !isSidebarCollapsed;
+    setIsSidebarCollapsed(newValue);
+    localStorage.setItem('derma_sidebar_collapsed', String(newValue));
+  };
 
   const NavItem = ({ id, labelKey, icon: Icon, count }: { id: AdminPage, labelKey: string, icon: any, count?: number }) => {
     const isActive = activePage === id;
@@ -32,15 +89,18 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavig
     return (
       <button
         onClick={() => onNavigate(id)}
-        className={`w-full flex items-center gap-3 px-6 py-3.5 text-[13px] transition-luxury relative group
+        className={`w-full flex items-center gap-3 px-6 py-3.5 text-[13px] transition-all duration-300 relative group
           ${isActive
             ? 'text-derma-blue bg-white shadow-sm border-r-4 border-derma-gold'
             : 'text-derma-text-muted hover:text-derma-blue hover:bg-white/50'
-          }`}
+          } ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
+        title={isSidebarCollapsed ? label : ''}
       >
         <Icon size={18} className={isActive ? 'text-derma-gold' : 'text-derma-text-muted group-hover:text-derma-blue'} />
-        <span className={`font-semibold tracking-[0.02em] ${isActive ? 'text-derma-text' : ''}`}>{label}</span>
-        {count !== undefined && (
+        {!isSidebarCollapsed && (
+          <span className={`font-semibold tracking-[0.02em] ${isActive ? 'text-derma-text' : ''} animate-in fade-in slide-in-from-left-2 duration-300`}>{label}</span>
+        )}
+        {count !== undefined && !isSidebarCollapsed && (
           <span className="ml-auto text-[10px] font-bold bg-derma-blue text-white px-2 py-0.5 rounded-full shadow-sm">
             {count}
           </span>
@@ -53,85 +113,134 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavig
     <div className="min-h-screen bg-derma-bg flex font-sans">
 
       {/* SIDEBAR - Clinical Light Theme */}
-      <aside className="w-[280px] bg-derma-bg flex-shrink-0 fixed h-full z-20 flex flex-col border-r border-derma-border">
+      <aside className={`${isSidebarCollapsed ? 'w-[80px]' : 'w-[280px]'} bg-derma-bg flex-shrink-0 fixed h-full z-20 flex flex-col border-r border-derma-border transition-all duration-300 ease-in-out shadow-clinical`}>
         {/* Header */}
-        <div className="p-10 pb-8">
-          <h1 className="font-oswald text-derma-text text-xl tracking-[0.2em] uppercase">
-            DermaKor <span className="text-derma-gold">Swiss</span>
+        <div className={`p-8 ${isSidebarCollapsed ? 'px-4' : 'p-10 pb-8'} relative`}>
+          <button
+            onClick={toggleSidebar}
+            className="absolute -right-3 top-10 bg-white border border-derma-border rounded-full p-1 shadow-sm hover:text-derma-gold transition-colors z-30"
+          >
+            {isSidebarCollapsed ? <Menu size={14} /> : <ChevronLeft size={14} />}
+          </button>
+
+          <h1 className={`font-oswald text-derma-text uppercase transition-all duration-300 ${isSidebarCollapsed ? 'text-center text-xs tracking-tighter' : 'text-xl tracking-[0.2em]'}`}>
+            DermaKor <span className="text-derma-gold">{isSidebarCollapsed ? 'S' : 'Swiss'}</span>
           </h1>
-          <p className="text-[9px] text-derma-text-muted uppercase font-bold tracking-[0.2em] mt-1.5 opacity-70">Medical Distribution</p>
+          {!isSidebarCollapsed && (
+            <p className="text-[10px] text-derma-text-muted uppercase font-black tracking-[0.1em] mt-2 opacity-80 leading-tight">
+              Distributeur Officiel & Exclusif <br />
+              <span className="text-derma-gold text-[11px]">KRX Aesthetics</span>
+            </p>
+          )}
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 py-4 space-y-1 overflow-y-auto custom-scrollbar">
           <NavItem id="dashboard" labelKey="admin_nav_dashboard" icon={LayoutDashboard} />
 
-          <div className="pt-8 pb-3 px-8">
-            <p className="text-[10px] uppercase text-derma-text-muted font-black tracking-[0.25em] opacity-40">{t('admin_nav_operational')}</p>
+          <div className={`pt-8 pb-3 ${isSidebarCollapsed ? 'px-0 text-center' : 'px-8'}`}>
+            <p className={`text-[10px] uppercase text-derma-text-muted font-black tracking-[0.25em] opacity-40 transition-opacity duration-300 ${isSidebarCollapsed ? 'opacity-0 h-0 overflow-hidden' : ''}`}>{t('admin_nav_operational')}</p>
           </div>
-          <NavItem id="partners" labelKey="admin_nav_partners" icon={Users} count={24} />
-          <NavItem id="orders" labelKey="admin_nav_orders" icon={ShoppingBag} count={12} />
+          <NavItem id="partners" labelKey="admin_nav_partners" icon={Users} count={counts.partners} />
+          <NavItem id="orders" labelKey="admin_nav_orders" icon={ShoppingBag} count={counts.orders} />
 
           <div className="space-y-1">
             <NavItem id="products" labelKey="admin_nav_products" icon={Package} />
-            <div className={`overflow-hidden transition-all duration-300 ${(activePage === 'products' || activePage === 'collections' || activePage === 'inventory') ? 'max-h-40' : 'max-h-0'}`}>
-              <button
-                onClick={() => onNavigate('products')}
-                className={`w-full flex items-center gap-3 pl-14 py-2.5 text-[12px] transition-luxury relative group
-                  ${activePage === 'products' ? 'text-derma-blue font-bold' : 'text-derma-text-muted hover:text-derma-blue'}`}
-              >
-                <div className={`w-1.5 h-1.5 rounded-full ${activePage === 'products' ? 'bg-derma-gold' : 'bg-transparent border border-derma-border'}`}></div>
-                <span>{t('admin_nav_products')}</span>
-              </button>
-              <button
-                onClick={() => onNavigate('collections')}
-                className={`w-full flex items-center gap-3 pl-14 py-2.5 text-[12px] transition-luxury relative group
-                  ${activePage === 'collections' ? 'text-derma-blue font-bold' : 'text-derma-text-muted hover:text-derma-blue'}`}
-              >
-                <div className={`w-1.5 h-1.5 rounded-full ${activePage === 'collections' ? 'bg-derma-gold' : 'bg-transparent border border-derma-border'}`}></div>
-                <span>{t('admin_nav_collections')}</span>
-              </button>
-              <button
-                onClick={() => onNavigate('inventory')}
-                className={`w-full flex items-center gap-3 pl-14 py-2.5 text-[12px] transition-luxury relative group
-                  ${activePage === 'inventory' ? 'text-derma-blue font-bold' : 'text-derma-text-muted hover:text-derma-blue'}`}
-              >
-                <div className={`w-1.5 h-1.5 rounded-full ${activePage === 'inventory' ? 'bg-derma-gold' : 'bg-transparent border border-derma-border'}`}></div>
-                <span>{t('admin_nav_inventory')}</span>
-              </button>
-            </div>
+            {!isSidebarCollapsed && (
+              <div className={`overflow-hidden transition-all duration-300 ${(activePage === 'products' || activePage === 'collections' || activePage === 'inventory') ? 'max-h-40' : 'max-h-0'}`}>
+                <button
+                  onClick={() => onNavigate('products')}
+                  className={`w-full flex items-center gap-3 pl-14 py-2.5 text-[12px] transition-luxury relative group
+                    ${activePage === 'products' ? 'text-derma-blue font-bold' : 'text-derma-text-muted hover:text-derma-blue'}`}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full ${activePage === 'products' ? 'bg-derma-gold' : 'bg-transparent border border-derma-border'}`}></div>
+                  <span>{t('admin_nav_products')}</span>
+                </button>
+                <button
+                  onClick={() => onNavigate('collections')}
+                  className={`w-full flex items-center gap-3 pl-14 py-2.5 text-[12px] transition-luxury relative group
+                    ${activePage === 'collections' ? 'text-derma-blue font-bold' : 'text-derma-text-muted hover:text-derma-blue'}`}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full ${activePage === 'collections' ? 'bg-derma-gold' : 'bg-transparent border border-derma-border'}`}></div>
+                  <span>{t('admin_nav_collections')}</span>
+                </button>
+                <button
+                  onClick={() => onNavigate('inventory')}
+                  className={`w-full flex items-center gap-3 pl-14 py-2.5 text-[12px] transition-luxury relative group
+                    ${activePage === 'inventory' ? 'text-derma-blue font-bold' : 'text-derma-text-muted hover:text-derma-blue'}`}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full ${activePage === 'inventory' ? 'bg-derma-gold' : 'bg-transparent border border-derma-border'}`}></div>
+                  <span>{t('admin_nav_inventory')}</span>
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="pt-8 pb-3 px-8">
-            <p className="text-[10px] uppercase text-derma-text-muted font-black tracking-[0.25em] opacity-40">{t('admin_nav_strategy')}</p>
+          <div className={`pt-8 pb-3 ${isSidebarCollapsed ? 'px-0 text-center' : 'px-8'}`}>
+            <p className={`text-[10px] uppercase text-derma-text-muted font-black tracking-[0.25em] opacity-40 transition-opacity duration-300 ${isSidebarCollapsed ? 'opacity-0 h-0 overflow-hidden' : ''}`}>{t('admin_nav_strategy')}</p>
           </div>
+          <NavItem id="vision" labelKey="admin_nav_vision" icon={TrendingUp} />
           <NavItem id="pricing" labelKey="admin_nav_pricing" icon={Tag} />
           <NavItem id="reports" labelKey="admin_nav_reports" icon={BarChart2} />
+          <NavItem id="academy" labelKey="admin_nav_academy" icon={GraduationCap} />
           <NavItem id="settings" labelKey="admin_nav_settings" icon={Settings} />
         </nav>
 
         {/* User Footer */}
-        <div className="p-8 border-t border-derma-border bg-white/30">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-derma-blue text-white flex items-center justify-center font-bold font-oswald text-sm shadow-md">
-              JT
+        <div className={`p-6 border-t border-derma-border bg-white/30 transition-all duration-300 ${isSidebarCollapsed ? 'px-2' : ''}`}>
+          {!isSidebarCollapsed && (
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-derma-blue text-white flex items-center justify-center font-bold font-oswald text-sm shadow-md">
+                JT
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-sm font-bold text-derma-text truncate tracking-tight">Jorge Torres</p>
+                <p className="text-[10px] text-derma-text-muted truncate uppercase font-bold opacity-60">Directeur Général</p>
+              </div>
             </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold text-derma-text truncate tracking-tight">Jorge Torres</p>
-              <p className="text-[10px] text-derma-text-muted truncate uppercase font-bold opacity-60">Directeur Général</p>
-            </div>
+          )}
+
+          <div className="space-y-2">
+            {!isSimulatingPartner ? (
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  onClick={() => handleToggleSimulation(UserTier.STANDARD)}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 bg-gray-100 border border-gray-200 rounded-md text-derma-text-muted text-[10px] font-black uppercase tracking-widest hover:bg-white hover:border-derma-blue transition-all ${isSidebarCollapsed ? 'px-0' : ''}`}
+                  title="Simulate Standard"
+                >
+                  <Eye size={14} /> {!isSidebarCollapsed && 'Standard View'}
+                </button>
+                <button
+                  onClick={() => handleToggleSimulation(UserTier.PREMIUM_ELITE)}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 bg-derma-gold/5 border border-derma-gold/20 rounded-md text-derma-gold text-[10px] font-black uppercase tracking-widest hover:bg-derma-gold hover:text-white transition-all ${isSidebarCollapsed ? 'px-0' : ''}`}
+                  title="Simulate Premium"
+                >
+                  <TrendingUp size={14} /> {!isSidebarCollapsed && 'Premium View'}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => handleToggleSimulation()}
+                className={`w-full flex items-center justify-center gap-2 py-2.5 bg-derma-black text-white rounded-md text-[10px] font-black uppercase tracking-widest hover:bg-derma-gold transition-all ${isSidebarCollapsed ? 'px-0 text-derma-gold' : ''}`}
+                title="Quitter Simulacion"
+              >
+                <EyeOff size={14} /> {!isSidebarCollapsed && 'Quitter Simulacion'}
+              </button>
+            )}
+
+            <button
+              onClick={onLogout}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-derma-border rounded-md text-derma-text-muted text-[10px] font-black uppercase tracking-widest hover:border-red-200 hover:text-red-500 transition-all ${isSidebarCollapsed ? 'px-0' : ''}`}
+              title={t('admin_logout')}
+            >
+              <LogOut size={14} /> {!isSidebarCollapsed && t('admin_logout')}
+            </button>
           </div>
-          <button
-            onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-derma-border rounded-md text-derma-text-muted text-[11px] font-bold uppercase tracking-widest hover:text-derma-blue hover:border-derma-blue hover:shadow-clinical transition-luxury"
-          >
-            <LogOut size={14} /> {t('admin_logout')}
-          </button>
         </div>
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 ml-[280px] flex flex-col min-h-screen">
+      <main className={`flex-1 ${isSidebarCollapsed ? 'ml-[80px]' : 'ml-[280px]'} flex flex-col min-h-screen transition-all duration-300 ease-in-out`}>
 
         {/* TOP HEADER BAR - Clean & Minimalist */}
         <header className="h-20 bg-white/80 backdrop-blur-md border-b border-derma-border sticky top-0 z-40 px-10 flex items-center justify-between">

@@ -11,6 +11,7 @@ import Academy from './pages/Academy';
 import LandingPage from './pages/LandingPage';
 import RegistrationForm from './pages/RegistrationForm';
 import { useAuth } from './hooks/useAuth';
+import { UserTier } from './types';
 
 // Admin Components
 import AdminLogin from './pages/AdminLogin';
@@ -22,6 +23,8 @@ import AdminOrders from './pages/AdminOrders';
 import AdminCatalog from './pages/AdminCatalog';
 import AdminReports from './pages/AdminReports';
 import AdminSettings from './pages/AdminSettings';
+import AdminAcademy from './pages/AdminAcademy';
+import AdminStrategicOverview from './pages/admin/AdminStrategicOverview';
 
 // Enhanced ErrorBoundary to catch and display runtime errors
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
@@ -46,6 +49,9 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
           <p className="text-red-600 mb-6">Un error es ocurrido al intentar mostrar esta página.</p>
           <div className="bg-white p-6 border rounded shadow-lg overflow-auto max-w-4xl">
             <pre className="text-sm text-red-700 whitespace-pre-wrap">{this.state.error?.stack || this.state.error?.message}</pre>
+            <div className="mt-4 p-4 bg-gray-100 rounded text-[10px] text-gray-500 font-mono">
+              Location: {window.location.href}
+            </div>
           </div>
           <button
             onClick={() => window.location.href = '/'}
@@ -98,7 +104,12 @@ const AppContent: React.FC = () => {
         path="/dashboard/*"
         element={
           <ProtectedRoute allowedRoles={['PARTENAIRE', 'ADMIN']}>
-            <Layout user={user as any} onLogout={logout} activePage="dashboard" onNavigate={() => { }}>
+            <Layout
+              user={user as any}
+              onLogout={logout}
+              activePage={window.location.pathname.split('/').pop() || 'dashboard'}
+              onNavigate={(page) => navigate(`/dashboard/${page === 'dashboard' ? '' : page}`)}
+            >
               <Routes>
                 <Route index element={<Dashboard />} />
                 <Route path="order" element={<Order />} />
@@ -122,6 +133,7 @@ const AppContent: React.FC = () => {
             >
               <Routes>
                 <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="vision" element={<AdminStrategicOverview />} />
                 <Route path="partners" element={<AdminPartners onNavigate={(page) => navigate(`/admin/${page}`)} />} />
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="products" element={<AdminCatalog mode="all" />} />
@@ -130,6 +142,7 @@ const AppContent: React.FC = () => {
                 <Route path="catalog" element={<Navigate to="products" replace />} />
                 <Route path="pricing" element={<AdminPricing />} />
                 <Route path="reports" element={<AdminReports />} />
+                <Route path="academy" element={<AdminAcademy />} />
                 <Route path="settings" element={<AdminSettings />} />
                 <Route path="*" element={<Navigate to="dashboard" replace />} />
               </Routes>

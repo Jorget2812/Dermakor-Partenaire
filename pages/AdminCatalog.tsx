@@ -21,6 +21,7 @@ import {
 import { supabase } from '../utils/supabase';
 import { syncShopifyInventory } from '../utils/shopifySync';
 import { useLanguage } from '../context/LanguageContext';
+import { PROFIT_RULES } from '../constants/financials';
 
 interface AdminCatalogProps {
     mode?: 'all' | 'collections' | 'inventory';
@@ -51,6 +52,10 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+    const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Form State
     const [newCategoryName, setNewCategoryName] = useState('');
@@ -163,30 +168,166 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
         await handleUpdateStock(id, newStock);
     };
 
+    const handleExportCSV = () => {
+        const headers = ['Name', 'SKU', 'Category', 'Price', 'Stock', 'Status'];
+        const rows = filteredProducts.map(p => [
+            p.name,
+            p.sku,
+            p.category,
+            p.price,
+            p.stock_quantity,
+            p.status
+        ]);
+
+        const csvContent = [headers, ...rows].map(e => e.join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `inventory_export_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const text = event.target?.result as string;
+            const lines = text.split('\n');
+            if (lines.length < 2) return;
+
+            const importedProducts = lines.slice(1).filter(l => l.trim()).map(line => {
+                const values = line.split(',');
+                return {
+                    name: values[0]?.trim(),
+                    sku: values[1]?.trim(),
+                    category: values[2]?.trim(),
+                    price: parseFloat(values[3] || '0'),
+                    stock_quantity: parseInt(values[4] || '0'),
+                    status: (values[5]?.trim() || 'ACTIVE').toUpperCase(),
+                    stock_status: parseInt(values[4] || '0') > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK'
+                };
+            });
+
+            const { error } = await supabase.from('products').upsert(importedProducts, { onConflict: 'sku' });
+            if (error) {
+                console.error(error);
+                alert('Erreur lors de l\'importation: ' + error.message);
+            } else {
+                alert('Importation réussie !');
+                await fetchData();
+            }
+        };
+        reader.readAsText(file);
+    };
+
     const handleSaveProduct = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            const productData = editingProduct || newProduct;
             const payload = {
-                name: newProduct.name,
-                sku: newProduct.sku,
-                category_id: newProduct.categoryId,
-                category: categories.find(c => c.id === newProduct.categoryId)?.name || '',
-                price: newProduct.price,
-                cost_price: newProduct.costPrice,
-                retail_price: newProduct.retailPrice,
-                stock_quantity: newProduct.stock_quantity,
-                description: newProduct.description
+                name: productData.name,
+                sku: productData.sku,
+                category_id: productData.categoryId,
+                category: categories.find(c => c.id === productData.categoryId)?.name || '',
+                price: productData.price,
+                cost_price: productData.costPrice,
+                retail_price: productData.retailPrice,
+                stock_quantity: productData.stock_quantity,
+                stock_status: (productData.stock_quantity || 0) > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK',
+                description: productData.description,
+                status: productData.status || 'ACTIVE'
             };
 
-            const { error } = await supabase.from('products').insert([payload]);
+            let error;
+            if (editingProduct) {
+                const safety = getPriceSafety(payload.cost_price, payload.price, payload.retail_price);
+                if (safety.isUnsafe) {
+                    alert("⚠️ Atención: Este precio compromete el margen mínimo definido y genera riesgo de pérdida. Ajuste requerido antes de continuar.");
+                    return;
+                }
+                const { error: err } = await supabase.from('products').update(payload).eq('id', editingProduct.id);
+                error = err;
+            } else {
+                const safety = getPriceSafety(payload.cost_price, payload.price, payload.retail_price);
+                if (safety.isUnsafe) {
+                    alert("⚠️ Atención: Este precio compromete el margen mínimo definido y genera riesgo de pérdida. Ajuste requerido antes de continuar.");
+                    return;
+                }
+                const { error: err } = await supabase.from('products').insert([payload]);
+                error = err;
+            }
+
             if (error) throw error;
+
             setIsAddModalOpen(false);
+            setIsEditModalOpen(false);
+            setEditingProduct(null);
             setNewProduct({ name: '', sku: '', categoryId: '', price: 0, costPrice: 0, retailPrice: 0, stock_quantity: 0, description: '' });
             await fetchData();
         } catch (err) {
             console.error(err);
             alert('Erreur lors de la sauvegarde');
         }
+    };
+
+    const handleBulkDelete = async () => {
+        if (!window.confirm(`Supprimer ${selectedProducts.size} produits ?`)) return;
+        try {
+            const { error } = await supabase.from('products').delete().in('id', Array.from(selectedProducts));
+            if (error) throw error;
+            setSelectedProducts(new Set());
+            await fetchData();
+        } catch (err) {
+            console.error(err);
+            alert('Erreur lors de la suppression en masse');
+        }
+    };
+
+    const toggleProductSelection = (id: string) => {
+        const newSelection = new Set(selectedProducts);
+        if (newSelection.has(id)) newSelection.delete(id);
+        else newSelection.add(id);
+        setSelectedProducts(newSelection);
+    };
+
+    const toggleAllSelection = () => {
+        if (selectedProducts.size === filteredProducts.length) {
+            setSelectedProducts(new Set());
+        } else {
+            setSelectedProducts(new Set(filteredProducts.map(p => p.id)));
+        }
+    };
+
+    // --- MARGIN PROTECTION LOGIC ---
+    const getPriceSafety = (cost: number, b2b: number, retail: number) => {
+        const minB2B = cost + PROFIT_RULES.MIN_MARGIN_CHF;
+        const minPVPPremium = minB2B * PROFIT_RULES.MULTIPLIER_PREMIUM;
+        const minPVPStandard = minB2B * PROFIT_RULES.MULTIPLIER_STANDARD;
+
+        const marginCHF = b2b - cost;
+        const marginPct = b2b > 0 ? (marginCHF / b2b) * 100 : 0;
+
+        const isB2BUnsafe = b2b < minB2B;
+        const isPremiumUnsafe = retail < minPVPPremium;
+        const isStandardUnsafe = retail < minPVPStandard;
+
+        return {
+            marginCHF,
+            marginPct,
+            isB2BUnsafe,
+            isPremiumUnsafe,
+            isStandardUnsafe,
+            isUnsafe: isB2BUnsafe || isPremiumUnsafe || isStandardUnsafe,
+            minB2B,
+            minPVPPremium,
+            minPVPStandard
+        };
     };
 
     // --- FILTERS & METRICS ---
@@ -245,16 +386,38 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                         <h1 className="font-oswald text-2xl uppercase tracking-tighter text-derma-text">
                             {mode === 'all' ? t('admin_nav_products') : mode === 'inventory' ? t('admin_nav_inventory') : t('admin_nav_collections')}
                         </h1>
+                        {selectedProducts.size > 0 && (
+                            <div className="flex items-center gap-4 bg-derma-blue/10 border border-derma-blue/20 rounded-lg px-4 py-1.5 animate-fade-in">
+                                <span className="text-[11px] font-black text-derma-blue uppercase tracking-widest">{selectedProducts.size} SÉLECTIONNÉS</span>
+                                <button
+                                    onClick={handleBulkDelete}
+                                    className="p-1.5 hover:bg-red-500 hover:text-white text-red-500 rounded-md transition-all"
+                                    title="Supprimer la selección"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-3">
-                        <button className="px-4 py-2 bg-white border border-derma-border rounded-lg text-[11px] font-black uppercase tracking-widest text-derma-text hover:bg-derma-bg transition-luxury">
-                            {t('common_export')}
-                        </button>
-                        <button className="px-4 py-2 bg-white border border-derma-border rounded-lg text-[11px] font-black uppercase tracking-widest text-derma-text hover:bg-derma-bg transition-luxury">
-                            {t('common_import')}
+                        <input type="file" ref={fileInputRef} hidden accept=".csv" onChange={handleImportCSV} />
+                        <button
+                            onClick={handleExportCSV}
+                            className="px-4 py-2 bg-white border border-derma-border rounded-lg text-[11px] font-black uppercase tracking-widest text-derma-text hover:bg-derma-bg transition-luxury shadow-sm"
+                        >
+                            <Download size={14} className="inline mr-2" /> {t('common_export')}
                         </button>
                         <button
-                            onClick={() => setIsAddModalOpen(true)}
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-4 py-2 bg-white border border-derma-border rounded-lg text-[11px] font-black uppercase tracking-widest text-derma-text hover:bg-derma-bg transition-luxury shadow-sm flex items-center"
+                        >
+                            <Upload size={14} className="inline mr-2" /> {t('common_import')}
+                        </button>
+                        <button
+                            onClick={() => {
+                                setEditingProduct(null);
+                                setIsAddModalOpen(true);
+                            }}
                             className="px-4 py-2 bg-derma-blue text-white rounded-lg text-[11px] font-black uppercase tracking-widest hover:shadow-lg transition-luxury flex items-center gap-2"
                         >
                             <Plus size={14} /> {t('common_add_product')}
@@ -304,7 +467,12 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                         <thead>
                             <tr className="bg-white border-b border-derma-border text-[11px] font-bold text-gray-500">
                                 <th className="px-6 py-4 w-10">
-                                    <input type="checkbox" className="rounded border-gray-300" />
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-gray-300"
+                                        checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
+                                        onChange={toggleAllSelection}
+                                    />
                                 </th>
                                 {mode === 'all' ? (
                                     <>
@@ -345,7 +513,12 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                                 categories.map(cat => (
                                     <tr key={cat.id} className="hover:bg-derma-bg/10 border-b border-derma-border group" onClick={() => navigate(`/admin/products?category=${cat.id}`)}>
                                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                                            <input type="checkbox" className="rounded border-gray-300" />
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-gray-300"
+                                                checked={selectedProducts.has(cat.id)}
+                                                onChange={() => toggleProductSelection(cat.id)}
+                                            />
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
@@ -378,7 +551,12 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                                     return (
                                         <tr key={p.id} className="hover:bg-derma-bg/10 border-b border-derma-border group" onClick={() => setSelectedProductId(p.id)}>
                                             <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                                                <input type="checkbox" className="rounded border-gray-300" />
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded border-gray-300"
+                                                    checked={selectedProducts.has(p.id)}
+                                                    onChange={() => toggleProductSelection(p.id)}
+                                                />
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
@@ -513,7 +691,19 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                                 </div>
 
                                 <div className="flex gap-4">
-                                    <button className="flex-1 bg-derma-text text-white py-4 rounded-xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-derma-blue hover:shadow-xl transition-luxury">{t('catalog_drawer_edit_tech_sheet')}</button>
+                                    <button
+                                        onClick={() => {
+                                            const p = products.find(p => p.id === selectedProductId);
+                                            if (p) {
+                                                setEditingProduct(p);
+                                                setIsEditModalOpen(true);
+                                                setSelectedProductId(null);
+                                            }
+                                        }}
+                                        className="flex-1 bg-derma-text text-white py-4 rounded-xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-derma-blue hover:shadow-xl transition-luxury"
+                                    >
+                                        {t('catalog_drawer_edit_tech_sheet')}
+                                    </button>
                                     <button
                                         onClick={() => handleDeleteProduct(selectedProductId!)}
                                         className="w-16 h-14 bg-red-50 text-red-500 rounded-xl flex items-center justify-center border border-red-100 hover:bg-red-500 hover:text-white transition-luxury shadow-sm"
@@ -571,31 +761,78 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                 )
             }
 
-            {/* Add Product Modal */}
+            {/* Add/Edit Product Modal */}
             {
-                isAddModalOpen && (
+                (isAddModalOpen || isEditModalOpen) && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-derma-text/40 backdrop-blur-md" onClick={() => setIsAddModalOpen(false)}></div>
+                        <div className="absolute inset-0 bg-derma-text/40 backdrop-blur-md" onClick={() => {
+                            setIsAddModalOpen(false);
+                            setIsEditModalOpen(false);
+                            setEditingProduct(null);
+                        }}></div>
                         <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
                             <div className="p-6 border-b border-derma-border flex justify-between items-center bg-derma-bg/10">
-                                <h3 className="font-oswald text-lg uppercase tracking-wider">Nouveau Produit</h3>
-                                <button onClick={() => setIsAddModalOpen(false)} className="text-derma-text-muted hover:text-derma-blue transition-colors">
+                                <h3 className="font-oswald text-lg uppercase tracking-wider">
+                                    {isEditModalOpen ? 'Modifier le Produit' : 'Nouveau Produit'}
+                                </h3>
+                                <button onClick={() => {
+                                    setIsAddModalOpen(false);
+                                    setIsEditModalOpen(false);
+                                    setEditingProduct(null);
+                                }} className="text-derma-text-muted hover:text-derma-blue transition-colors">
                                     <X size={20} />
                                 </button>
                             </div>
                             <form onSubmit={handleSaveProduct} className="p-6 space-y-4">
+                                {isEditModalOpen && (
+                                    <div className="flex gap-2 mb-4">
+                                        {['ACTIVE', 'DRAFT', 'ARCHIVED'].map(s => (
+                                            <button
+                                                key={s}
+                                                type="button"
+                                                onClick={() => setEditingProduct(editingProduct ? { ...editingProduct, status: s as any } : null)}
+                                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all
+                                                ${editingProduct?.status === s ? 'bg-derma-blue text-white shadow-md' : 'bg-derma-bg text-derma-text-muted opacity-50'}`}
+                                            >
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                                 <div>
                                     <label className="text-[10px] font-black uppercase text-derma-text-muted mb-1 block">Nom</label>
-                                    <input type="text" required value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} className="w-full px-4 py-2 bg-derma-bg border border-derma-border rounded-lg text-sm focus:outline-none focus:border-derma-blue" />
+                                    <input
+                                        type="text"
+                                        required
+                                        value={isEditModalOpen ? editingProduct?.name : newProduct.name}
+                                        onChange={e => isEditModalOpen
+                                            ? setEditingProduct(prev => prev ? { ...prev, name: e.target.value } : null)
+                                            : setNewProduct({ ...newProduct, name: e.target.value })}
+                                        className="w-full px-4 py-2 bg-derma-bg border border-derma-border rounded-lg text-sm focus:outline-none focus:border-derma-blue"
+                                    />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-[10px] font-black uppercase text-derma-text-muted mb-1 block">SKU</label>
-                                        <input type="text" required value={newProduct.sku} onChange={e => setNewProduct({ ...newProduct, sku: e.target.value })} className="w-full px-4 py-2 bg-derma-bg border border-derma-border rounded-lg text-sm focus:outline-none focus:border-derma-blue" />
+                                        <input
+                                            type="text"
+                                            required
+                                            value={isEditModalOpen ? editingProduct?.sku : newProduct.sku}
+                                            onChange={e => isEditModalOpen
+                                                ? setEditingProduct(prev => prev ? { ...prev, sku: e.target.value } : null)
+                                                : setNewProduct({ ...newProduct, sku: e.target.value })}
+                                            className="w-full px-4 py-2 bg-derma-bg border border-derma-border rounded-lg text-sm focus:outline-none focus:border-derma-blue"
+                                        />
                                     </div>
                                     <div>
                                         <label className="text-[10px] font-black uppercase text-derma-text-muted mb-1 block">Collection</label>
-                                        <select value={newProduct.categoryId} onChange={e => setNewProduct({ ...newProduct, categoryId: e.target.value })} className="w-full px-4 py-2 bg-derma-bg border border-derma-border rounded-lg text-sm focus:outline-none focus:border-derma-blue">
+                                        <select
+                                            value={isEditModalOpen ? editingProduct?.categoryId : newProduct.categoryId}
+                                            onChange={e => isEditModalOpen
+                                                ? setEditingProduct(prev => prev ? { ...prev, categoryId: e.target.value } : null)
+                                                : setNewProduct({ ...newProduct, categoryId: e.target.value })}
+                                            className="w-full px-4 py-2 bg-derma-bg border border-derma-border rounded-lg text-sm focus:outline-none focus:border-derma-blue"
+                                        >
                                             <option value="">Sélectionner...</option>
                                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
@@ -604,19 +841,100 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                                 <div className="grid grid-cols-3 gap-4">
                                     <div>
                                         <label className="text-[10px] font-black uppercase text-derma-text-muted mb-1 block">Coût (CHF)</label>
-                                        <input type="number" required value={newProduct.costPrice || ''} onChange={e => setNewProduct({ ...newProduct, costPrice: Number(e.target.value) })} className="w-full px-4 py-2 bg-derma-bg border border-derma-border rounded-lg text-sm focus:outline-none focus:border-derma-blue" />
+                                        <input
+                                            type="number"
+                                            required
+                                            value={isEditModalOpen ? editingProduct?.costPrice : newProduct.costPrice || ''}
+                                            onChange={e => isEditModalOpen
+                                                ? setEditingProduct(prev => prev ? { ...prev, costPrice: Number(e.target.value) } : null)
+                                                : setNewProduct({ ...newProduct, costPrice: Number(e.target.value) })}
+                                            className="w-full px-4 py-2 bg-derma-bg border border-derma-border rounded-lg text-sm focus:outline-none focus:border-derma-blue"
+                                        />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-black uppercase text-derma-text-muted mb-1 block">B2B (CHF)</label>
-                                        <input type="number" required value={newProduct.price || ''} onChange={e => setNewProduct({ ...newProduct, price: Number(e.target.value) })} className="w-full px-4 py-2 bg-derma-bg border border-derma-border rounded-lg text-sm focus:outline-none focus:border-derma-blue" />
+                                        <label className="text-[10px] font-black uppercase text-derma-text-muted mb-1 block">B2B Distri (CHF)</label>
+                                        <input
+                                            type="number"
+                                            required
+                                            value={isEditModalOpen ? editingProduct?.price : newProduct.price || ''}
+                                            onChange={e => isEditModalOpen
+                                                ? setEditingProduct(prev => prev ? { ...prev, price: Number(e.target.value) } : null)
+                                                : setNewProduct({ ...newProduct, price: Number(e.target.value) })}
+                                            className={`w-full px-4 py-2 border rounded-lg text-sm focus:outline-none ${getPriceSafety(
+                                                (isEditModalOpen ? editingProduct?.costPrice : newProduct.costPrice) || 0,
+                                                (isEditModalOpen ? editingProduct?.price : newProduct.price) || 0,
+                                                (isEditModalOpen ? editingProduct?.retailPrice : newProduct.retailPrice) || 0
+                                            ).isB2BUnsafe ? 'bg-red-50 border-red-500 text-red-600' : 'bg-derma-bg border-derma-border'
+                                                }`}
+                                        />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-black uppercase text-derma-text-muted mb-1 block">Stock</label>
-                                        <input type="number" required value={newProduct.stock_quantity || ''} onChange={e => setNewProduct({ ...newProduct, stock_quantity: Number(e.target.value) })} className="w-full px-4 py-2 bg-derma-bg border border-derma-border rounded-lg text-sm focus:outline-none focus:border-derma-blue" />
+                                        <label className="text-[10px] font-black uppercase text-derma-text-muted mb-1 block">PVP Public (CHF)</label>
+                                        <input
+                                            type="number"
+                                            required
+                                            value={isEditModalOpen ? editingProduct?.retailPrice : newProduct.retailPrice || ''}
+                                            onChange={e => isEditModalOpen
+                                                ? setEditingProduct(prev => prev ? { ...prev, retailPrice: Number(e.target.value) } : null)
+                                                : setNewProduct({ ...newProduct, retailPrice: Number(e.target.value) })}
+                                            className={`w-full px-4 py-2 border rounded-lg text-sm focus:outline-none ${getPriceSafety(
+                                                (isEditModalOpen ? editingProduct?.costPrice : newProduct.costPrice) || 0,
+                                                (isEditModalOpen ? editingProduct?.price : newProduct.price) || 0,
+                                                (isEditModalOpen ? editingProduct?.retailPrice : newProduct.retailPrice) || 0
+                                            ).isPremiumUnsafe || getPriceSafety(
+                                                (isEditModalOpen ? editingProduct?.costPrice : newProduct.costPrice) || 0,
+                                                (isEditModalOpen ? editingProduct?.price : newProduct.price) || 0,
+                                                (isEditModalOpen ? editingProduct?.retailPrice : newProduct.retailPrice) || 0
+                                            ).isStandardUnsafe ? 'bg-red-50 border-red-500 text-red-600' : 'bg-derma-bg border-derma-border'
+                                                }`}
+                                        />
                                     </div>
                                 </div>
+
+                                {/* CFO Real-time Feedback */}
+                                {(() => {
+                                    const cost = (isEditModalOpen ? editingProduct?.costPrice : newProduct.costPrice) || 0;
+                                    const b2b = (isEditModalOpen ? editingProduct?.price : newProduct.price) || 0;
+                                    const retail = (isEditModalOpen ? editingProduct?.retailPrice : newProduct.retailPrice) || 0;
+                                    const safety = getPriceSafety(cost, b2b, retail);
+
+                                    return (
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center px-4 py-3 bg-derma-bg/50 rounded-xl border border-derma-border">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black text-derma-text-muted uppercase tracking-widest">Margen Bruto B2B</span>
+                                                    <span className={`text-sm font-bold ${safety.isB2BUnsafe ? 'text-red-600' : 'text-derma-blue'}`}>
+                                                        CHF {safety.marginCHF.toFixed(2)} ({safety.marginPct.toFixed(1)}%)
+                                                    </span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-[9px] font-black text-derma-text-muted uppercase tracking-widest block">Min B2B Requerido</span>
+                                                    <span className="text-sm font-bold text-derma-text">CHF {safety.minB2B.toFixed(2)}</span>
+                                                </div>
+                                            </div>
+
+                                            {safety.isUnsafe && (
+                                                <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex gap-3 animate-pulse">
+                                                    <AlertCircle size={18} className="text-red-500 shrink-0" />
+                                                    <div className="space-y-1">
+                                                        <p className="text-[11px] font-bold text-red-700 leading-tight">
+                                                            ⚠️ Atención: Este precio compromete el margen mínimo definido y genera riesgo de pérdida. Ajuste requerido antes de continuar.
+                                                        </p>
+                                                        <p className="text-[10px] text-red-500 font-medium">
+                                                            PVP Mínimo Sugerido: Premium (CHF {safety.minPVPPremium.toFixed(2)}) | Standard (CHF {safety.minPVPStandard.toFixed(2)})
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                                 <div className="pt-4 flex justify-end gap-3">
-                                    <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-6 py-2 text-[11px] font-black uppercase tracking-widest text-derma-text-muted">Annuler</button>
+                                    <button type="button" onClick={() => {
+                                        setIsAddModalOpen(false);
+                                        setIsEditModalOpen(false);
+                                        setEditingProduct(null);
+                                    }} className="px-6 py-2 text-[11px] font-black uppercase tracking-widest text-derma-text-muted">Annuler</button>
                                     <button type="submit" className="px-8 py-2 bg-derma-blue text-white rounded-full text-[11px] font-black uppercase tracking-widest hover:shadow-lg transition-luxury">Enregistrer</button>
                                 </div>
                             </form>

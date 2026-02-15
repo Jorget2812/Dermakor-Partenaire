@@ -19,9 +19,13 @@ import {
     Star,
     Loader2,
     User as UserIcon,
-    RefreshCcw
+    RefreshCcw,
+    Bookmark,
+    ShieldAlert,
+    Unlock,
+    Lock as LockIcon
 } from 'lucide-react';
-import { UserTier, Partner, AdminPage } from '../types';
+import { UserTier, Partner, Language, AdminPage } from '../types';
 import { supabase } from '../utils/supabase';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -30,7 +34,7 @@ interface AdminPartnersProps {
 }
 
 const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [partners, setPartners] = useState<Partner[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
@@ -113,6 +117,55 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
 
         return matchesSearch && matchesFilter;
     });
+
+    const handleUpdateAcademyAccess = async (partnerId: string, updates: any) => {
+        setIsLoading(true);
+        try {
+            const { error } = await supabase
+                .from('partner_users')
+                .update({
+                    academy_access_status: updates.academy_access_status,
+                    academy_access_type: updates.academy_access_type,
+                    academy_access_until: updates.academy_access_until || null
+                })
+                .eq('id', partnerId);
+
+            if (error) throw error;
+            alert(t('academy_access_updated'));
+            await fetchPartners();
+
+            if (selectedPartner?.id === partnerId) {
+                const { data: updatedData } = await supabase
+                    .from('partner_users')
+                    .select('*')
+                    .eq('id', partnerId)
+                    .single();
+
+                if (updatedData) {
+                    const mapped: Partner = {
+                        id: updatedData.id,
+                        instituteName: updatedData.company_name || 'Sans nom',
+                        contactName: updatedData.contact_name || 'Non spécifié',
+                        email: updatedData.email || '',
+                        location: updatedData.address || 'Non spécifié',
+                        tier: (updatedData.tier as UserTier) || UserTier.STANDARD,
+                        joinDate: updatedData.created_at ? new Date(updatedData.created_at).toLocaleDateString('fr-CH') : 'N/A',
+                        status: (updatedData.status || 'PENDING').toUpperCase() as any,
+                        monthlySpend: 0,
+                        academyAccessStatus: updatedData.academy_access_status,
+                        academyAccessType: updatedData.academy_access_type,
+                        academyAccessUntil: updatedData.academy_access_until
+                    };
+                    setSelectedPartner(mapped);
+                }
+            }
+        } catch (error) {
+            console.error('Error updating academy access:', error);
+            alert(t('common_error'));
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleUpdateStatus = async (partnerId: string, status: 'approved' | 'rejected') => {
         try {
@@ -312,11 +365,11 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                             <tbody className="divide-y divide-derma-border">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-400 font-light italic">Chargement des partenaires...</td>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-400 font-light italic">{t('partners_loading')}</td>
                                     </tr>
                                 ) : filteredPartners.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-400 font-light italic">Aucun partenaire trouvé.</td>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-400 font-light italic">{t('partners_empty')}</td>
                                     </tr>
                                 ) : (
                                     filteredPartners.map((partner) => (
@@ -353,14 +406,14 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                                         <>
                                                             <button
                                                                 onClick={() => handleUpdateStatus(partner.id, 'approved')}
-                                                                title="Approuver"
+                                                                title={t('partners_approve')}
                                                                 className="p-1.5 bg-emerald-50 text-emerald-600 rounded border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all"
                                                             >
                                                                 <Check size={14} />
                                                             </button>
                                                             <button
                                                                 onClick={() => handleUpdateStatus(partner.id, 'rejected')}
-                                                                title="Refuser"
+                                                                title={t('partners_reject')}
                                                                 className="p-1.5 bg-rose-50 text-rose-600 rounded border border-rose-200 hover:bg-rose-600 hover:text-white transition-all"
                                                             >
                                                                 <XCircle size={14} />
@@ -384,18 +437,18 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-[#FAFAF8] border-b border-derma-border">
-                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Prospect / Institut</th>
-                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Contact & Email</th>
-                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Source</th>
-                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Date Lead</th>
-                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">{t('partners_table_prospect')}</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">{t('partners_table_contact')}</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">{t('partners_table_source')}</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">{t('partners_lead_date')}</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] text-right">{t('partners_table_actions')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-derma-border">
                                 {isLoading ? (
-                                    <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400 italic">Chargement...</td></tr>
+                                    <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400 italic">{t('partners_loading')}</td></tr>
                                 ) : prospects.length === 0 ? (
-                                    <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400 italic">Aucun prospect entrant.</td></tr>
+                                    <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400 italic">{t('partners_prospect_empty')}</td></tr>
                                 ) : (
                                     prospects.map((prospect) => (
                                         <tr key={prospect.id} className="hover:bg-[#FAFAF8]/50 transition-colors group">
@@ -484,13 +537,13 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="p-5 bg-[#FAFAF8] border border-derma-border rounded">
-                                        <span className="block text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-widest">Contact Principal</span>
+                                        <span className="block text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-widest">{t('partners_main_contact')}</span>
                                         <div className="text-derma-black font-bold flex items-center gap-2">
                                             <UserIcon size={14} className="text-derma-gold" /> {selectedPartner.contactName}
                                         </div>
                                     </div>
                                     <div className="p-5 bg-[#FAFAF8] border border-derma-border rounded overflow-hidden">
-                                        <span className="block text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-widest">Email Affaire</span>
+                                        <span className="block text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-widest">{t('partners_business_email')}</span>
                                         <div className="text-derma-black font-bold flex items-start gap-2 text-[11px] break-all">
                                             <Mail size={14} className="text-derma-gold mt-0.5 shrink-0" /> {selectedPartner.email}
                                         </div>
@@ -498,19 +551,19 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                 </div>
 
                                 <div className="p-6 border border-derma-border rounded-lg space-y-6">
-                                    <h4 className="font-oswald text-sm uppercase tracking-widest border-b border-derma-border pb-3">Informations de Profil</h4>
+                                    <h4 className="font-oswald text-sm uppercase tracking-widest border-b border-derma-border pb-3">{t('partners_profile_info')}</h4>
 
                                     <div className="space-y-4">
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-400 font-light flex items-center gap-2"><MapPin size={14} /> Localisation</span>
+                                            <span className="text-gray-400 font-light flex items-center gap-2"><MapPin size={14} /> {t('partners_location')}</span>
                                             <span className="font-bold text-derma-black">{selectedPartner.location}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-400 font-light flex items-center gap-2"><Clock size={14} /> Date d'entrée</span>
+                                            <span className="text-gray-400 font-light flex items-center gap-2"><Clock size={14} /> {t('partners_joined')}</span>
                                             <span className="font-bold text-derma-black">{selectedPartner.joinDate}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-400 font-light flex items-center gap-2"><Filter size={14} /> Niveau Tier</span>
+                                            <span className="text-gray-400 font-light flex items-center gap-2"><Filter size={14} /> {t('partners_tier_level')}</span>
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-widest ${selectedPartner.tier === UserTier.PREMIUM ? 'bg-derma-gold/10 border-derma-gold/20 text-derma-gold' : 'bg-gray-100 border-gray-200 text-gray-500'
                                                 }`}>
                                                 {selectedPartner.tier}
@@ -519,19 +572,75 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
+                                {/* ACADEMY ACCESS SECTION */}
+                                <div className="p-6 border border-derma-border rounded-lg bg-gray-50/50 space-y-6">
+                                    <div className="flex items-center justify-between border-b border-derma-border pb-3">
+                                        <h4 className="font-oswald text-sm uppercase tracking-widest flex items-center gap-2 text-derma-black">
+                                            <Bookmark size={14} className="text-derma-gold" /> 🔐 {t('academy_admin_title')}
+                                        </h4>
+                                        <div className="flex items-center gap-2">
+                                            {(selectedPartner as any).academy_access_status === 'ACTIVE' ? (
+                                                <span className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[9px] font-black uppercase tracking-widest border border-emerald-100">
+                                                    <Unlock size={10} /> {t('academy_access_active')}
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center gap-1.5 px-2 py-0.5 bg-rose-50 text-rose-600 rounded text-[9px] font-black uppercase tracking-widest border border-rose-100">
+                                                    <LockIcon size={10} /> {t('academy_access_locked')}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={() => handleUpdateAcademyAccess(selectedPartner.id, { status: 'ACTIVE', type: 'PERMANENT' })}
+                                            className={`p-4 border rounded flex flex-col items-center gap-2 transition-all ${(selectedPartner as any).academy_access_status === 'ACTIVE' && (selectedPartner as any).academy_access_type === 'PERMANENT' ? 'bg-derma-black text-white border-derma-black shadow-md' : 'bg-white text-gray-400 border-derma-border hover:border-gray-300'}`}
+                                        >
+                                            <Unlock size={16} />
+                                            <span className="text-[9px] font-bold uppercase tracking-widest">{t('academy_access_perm')}</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                const days = t('academy_access_expire'); // Reusing expire key for prompt or similar
+                                                const userInput = prompt(days, '30');
+                                                if (!userInput) return;
+                                                const until = new Date();
+                                                until.setDate(until.getDate() + parseInt(userInput));
+                                                handleUpdateAcademyAccess(selectedPartner.id, { academy_access_status: 'ACTIVE', academy_access_type: 'TEMPORARY', academy_access_until: until.toISOString() });
+                                            }}
+                                            className={`p-4 border rounded flex flex-col items-center gap-2 transition-all ${(selectedPartner as any).academy_access_status === 'ACTIVE' && (selectedPartner as any).academy_access_type === 'TEMPORARY' ? 'bg-derma-gold text-white border-derma-gold shadow-md' : 'bg-white text-gray-400 border-derma-border hover:border-gray-300'}`}
+                                        >
+                                            <ShieldAlert size={16} />
+                                            <span className="text-[9px] font-bold uppercase tracking-widest">{t('academy_access_temp')}</span>
+                                        </button>
+                                        <button
+                                            onClick={() => handleUpdateAcademyAccess(selectedPartner.id, { academy_access_status: 'INACTIVE', academy_access_type: 'AUTOMATIC' })}
+                                            className="col-span-2 p-3 bg-white border border-rose-100 text-rose-600 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <XCircle size={14} /> {t('academy_access_disable')}
+                                        </button>
+                                    </div>
+
+                                    {(selectedPartner as any).academy_access_until && (
+                                        <div className="p-3 bg-amber-50 border border-amber-100 rounded text-[10px] text-amber-700 flex items-center gap-2">
+                                            <Clock size={14} /> {t('academy_access_expire')}: {new Date((selectedPartner as any).academy_access_until).toLocaleDateString(language === Language.FR ? 'fr-CH' : language === Language.DE ? 'de-CH' : 'it-CH')}
+                                        </div>
+                                    )}
+                                </div>
+
                                 {selectedPartner.status === 'PENDING' && (
                                     <div className="flex gap-4 pt-4">
                                         <button
                                             onClick={() => handleUpdateStatus(selectedPartner.id, 'approved')}
                                             className="flex-1 bg-emerald-600 text-white py-4 rounded font-bold text-[11px] uppercase tracking-[0.2em] shadow-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
                                         >
-                                            <Check size={16} /> Approuver l'accès
+                                            <Check size={16} /> {t('partners_approve')}
                                         </button>
                                         <button
                                             onClick={() => handleUpdateStatus(selectedPartner.id, 'rejected')}
                                             className="flex-1 bg-white border border-rose-200 text-rose-600 py-4 rounded font-bold text-[11px] uppercase tracking-[0.2em] hover:bg-rose-50 transition-all flex items-center justify-center gap-2"
                                         >
-                                            <XCircle size={16} /> Refuser
+                                            <XCircle size={16} /> {t('partners_reject')}
                                         </button>
                                     </div>
                                 )}
@@ -548,8 +657,8 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                     <div className="relative w-full max-w-lg h-full bg-white shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
                         <div className="p-8 border-b border-derma-border flex justify-between items-center bg-[#FAFAF8]">
                             <div>
-                                <h3 className="font-oswald text-2xl text-derma-black uppercase tracking-tight">Nouveau Partenaire</h3>
-                                <p className="text-gray-400 text-[10px] uppercase font-bold tracking-widest mt-1">Créez un accès pour un nouvel institut</p>
+                                <h3 className="font-oswald text-2xl text-derma-black uppercase tracking-tight">{t('partners_new_title')}</h3>
+                                <p className="text-gray-400 text-[10px] uppercase font-bold tracking-widest mt-1">{t('partners_new_subtitle')}</p>
                             </div>
                             <button
                                 onClick={() => setIsAddingPartner(false)}
@@ -561,31 +670,29 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
 
                         <form onSubmit={handleCreatePartner} className="flex-1 overflow-y-auto p-8 space-y-6">
                             <div className="space-y-2">
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nom de l'institut</label>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('partners_label_institute')}</label>
                                 <input
                                     required
                                     type="text"
                                     value={newPartner.company_name}
                                     onChange={(e) => setNewPartner({ ...newPartner, company_name: e.target.value })}
-                                    placeholder="Ex: Institut de Beauté Elite"
                                     className="w-full px-4 py-3 bg-[#FAFAF8] border border-derma-border rounded text-sm focus:outline-none focus:border-derma-gold"
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nom du contact</label>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('partners_label_contact')}</label>
                                 <input
                                     required
                                     type="text"
                                     value={newPartner.contact_name}
                                     onChange={(e) => setNewPartner({ ...newPartner, contact_name: e.target.value })}
-                                    placeholder="Ex: Marie Laurent"
                                     className="w-full px-4 py-3 bg-[#FAFAF8] border border-derma-border rounded text-sm focus:outline-none focus:border-derma-gold"
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email Affaire</label>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('partners_business_email')}</label>
                                 <input
                                     required
                                     type="email"
@@ -597,19 +704,18 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Localisation (Ville)</label>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('partners_label_location')}</label>
                                 <input
                                     required
                                     type="text"
                                     value={newPartner.address}
                                     onChange={(e) => setNewPartner({ ...newPartner, address: e.target.value })}
-                                    placeholder="Ex: Genève, Lausanne..."
                                     className="w-full px-4 py-3 bg-[#FAFAF8] border border-derma-border rounded text-sm focus:outline-none focus:border-derma-gold"
                                 />
                             </div>
 
                             <div className="space-y-2 pt-4">
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Niveau de Partenariat</label>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">{t('partners_label_tier')}</label>
                                 <div className="grid grid-cols-2 gap-4">
                                     <button
                                         type="button"
@@ -618,8 +724,8 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                             ? 'border-derma-black bg-derma-black text-white shadow-lg scale-[1.02]'
                                             : 'border-derma-border bg-white text-gray-400 hover:border-gray-300'}`}
                                     >
-                                        <span className="text-[10px] font-bold uppercase tracking-widest">Standard</span>
-                                        <span className="text-[8px] opacity-60">Accès de base</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest">STANDARD</span>
+                                        <span className="text-[8px] opacity-60">{t('partners_tier_standard_desc')}</span>
                                     </button>
                                     <button
                                         type="button"
@@ -628,8 +734,8 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                             ? 'border-derma-gold bg-derma-gold text-white shadow-lg scale-[1.02]'
                                             : 'border-derma-border bg-white text-gray-400 hover:border-gray-300'}`}
                                     >
-                                        <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">Premium <Star size={10} fill="currentColor" /></span>
-                                        <span className="text-[8px] opacity-60">Remises Max.</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">PREMIUM <Star size={10} fill="currentColor" /></span>
+                                        <span className="text-[8px] opacity-60">{t('partners_tier_premium_desc')}</span>
                                     </button>
                                 </div>
                             </div>
@@ -645,7 +751,7 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                     <Loader2 size={16} className="animate-spin" />
                                 ) : (
                                     <>
-                                        <Plus size={16} /> Créer le Partenaire
+                                        <Plus size={16} /> {t('partners_btn_create')}
                                     </>
                                 )}
                             </button>

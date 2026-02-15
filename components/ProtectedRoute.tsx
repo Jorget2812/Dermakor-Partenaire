@@ -9,12 +9,17 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
-    const { user, isAuthenticated, isLoading, logout } = useAuth();
+    const { user, isAuthenticated, isLoading, logout, resetApp } = useAuth();
     const location = useLocation();
 
     const handleLogoutAndHome = async () => {
-        await logout();
-        window.location.href = '/';
+        console.warn('ProtectedRoute: Reset triggered');
+        if (resetApp) {
+            resetApp();
+        } else {
+            await logout();
+            window.location.href = '/';
+        }
     };
 
     console.log('ProtectedRoute: Checking access...', {
@@ -24,6 +29,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
         hasUser: !!user,
         userRole: user?.role
     });
+
+    React.useEffect(() => {
+        if (!user && isAuthenticated && !isLoading) {
+            console.warn('ProtectedRoute: Authenticated but NO PROFILE. Logging out...');
+            handleLogoutAndHome();
+        }
+    }, [user, isAuthenticated, isLoading]);
 
     if (isLoading) {
         return (
@@ -40,13 +52,26 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
         return <Navigate to={loginPath} state={{ from: location }} replace />;
     }
 
-    // AUTHENTICATED BUT NO PROFILE FOUND
+    // AUTHENTICATED BUT NO PROFILE FOUND (This should be rare now with AuthContext fixes)
     if (!user) {
-        console.warn('ProtectedRoute: Authenticated but NO PROFILE. Logging out...');
-        handleLogoutAndHome();
         return (
-            <div className="flex items-center justify-center min-h-screen bg-[#FAFAF8]">
-                <p className="text-gray-400 font-oswald uppercase tracking-widest text-[10px]">Session Error - Resetting...</p>
+            <div className="flex flex-col items-center justify-center min-h-screen bg-[#FAFAF8] p-10 text-center font-sans">
+                <div className="w-16 h-16 border-2 border-[#C0A76A]/20 border-t-[#C0A76A] rounded-full animate-spin mb-8"></div>
+                <h2 className="font-oswald text-xl text-derma-black uppercase tracking-widest mb-2">Initialisation du profil</h2>
+                <p className="text-gray-400 text-xs font-light max-w-xs mb-10 leading-relaxed">
+                    Nous préparons votre accès sécurisé. Si cet écran persiste plus de 10 secondes, il y a probablement un conflit de session.
+                </p>
+
+                <button
+                    onClick={handleLogoutAndHome}
+                    className="px-8 py-4 bg-derma-black text-white text-[10px] font-bold uppercase tracking-[0.2em] rounded shadow-xl hover:bg-derma-gold transition-all duration-300"
+                >
+                    Réinitialiser ma session
+                </button>
+
+                <p className="mt-8 text-[9px] text-gray-300 uppercase tracking-widest">
+                    Ceci effacera vos cookies de session et vous ramènera au login.
+                </p>
             </div>
         );
     }

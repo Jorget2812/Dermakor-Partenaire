@@ -7,7 +7,10 @@ export interface Category {
 
 export enum UserTier {
   STANDARD = 'STANDARD',
-  PREMIUM = 'PREMIUM'
+  PREMIUM = 'PREMIUM', // Legacy alias
+  PREMIUM_BASE = 'PREMIUM_BASE',
+  PREMIUM_PRO = 'PREMIUM_PRO',
+  PREMIUM_ELITE = 'PREMIUM_ELITE'
 }
 
 export enum Language {
@@ -16,13 +19,28 @@ export enum Language {
   IT = 'IT'
 }
 
+export interface UserProfitData {
+  estimatedRetailSales: number;
+  estimatedProfit: number;
+  margin: number;
+}
+
 export interface User {
   id: string;
   name: string;
   instituteName: string;
   tier: UserTier;
   currentSpend: number;
-  monthlyGoal: number; // 300 for Standard, 800 for Premium
+  monthlyGoal: number;
+  consecutiveMonths: number;
+  ranking?: number; // Position in Elite 20
+  joinDate?: string;
+  profitData?: UserProfitData;
+  academyAccessStatus?: 'ACTIVE' | 'INACTIVE';
+  academyAccessType?: 'AUTOMATIC' | 'TEMPORARY' | 'PERMANENT';
+  academyAccessUntil?: string;
+  completedResources?: string[]; // Array of resource IDs
+  certificates?: string[]; // Array of level names (e.g. "PREMIUM_PRO")
 }
 
 // --- PRICING ENGINE TYPES ---
@@ -56,6 +74,29 @@ export interface Product {
   accumulated_profit?: number;
   monthly_rotation?: number;
   description: string;
+  strategicLabel?: 'BEST_SELLER' | 'HIGH_ROTATION' | 'HIGH_MARGIN' | 'STRATEGIC' | 'TENDENCY' | 'RECOMMENDED';
+  unitProfit?: number;
+  marginAtRetail?: number;
+}
+
+export interface StrategicPack {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  items: { productId: string; quantity: number }[];
+  image?: string;
+  badge?: string;
+}
+
+export interface CartKPIs {
+  totalCost: number;
+  estimatedRetail: number;
+  totalProfit: number;
+  avgMargin: number;
+  nextTierProgress: number;
+  nextTierName: string;
+  nextTierTarget: number;
 }
 
 export interface CartItem extends Product {
@@ -65,15 +106,26 @@ export interface CartItem extends Product {
 export interface AcademyResource {
   id: string;
   title: string;
-  type: 'VIDEO' | 'PDF' | 'CERTIFICATION';
-  tierReq: UserTier; // STANDARD means everyone, PREMIUM means restricted
+  description?: string;
+  type: 'VIDEO' | 'PDF' | 'CERTIFICATION' | 'COURSE' | 'MASTERCLASS' | 'DOWNLOADABLE' | 'WEBINAR';
+  category: string;
+  tierReq: UserTier | 'SPECIFIC' | 'MULTIPLE';
+  allowedTiers?: UserTier[]; // New flexible access
+  visibilityMode?: 'HIDE' | 'LOCKED' | 'PREVIEW'; // New visibility rules
+  academyLevel?: 'STANDARD' | 'PREMIUM_BASE' | 'PREMIUM_PRO' | 'PREMIUM_ELITE'; // Strategic grouping
+  strategicLabel?: string; // e.g. "Recomendado para subir a Pro"
+  volumeImpact?: string; // e.g. "Aumenta ticket promedio 27%"
+  requiredVolume?: number; // Automatic unlock threshold (e.g. 2000 for Pro, 4000 for Elite)
   thumbnail: string;
-  duration?: string; // e.g. "12 pages" or "14 min"
+  contentUrl?: string;
+  duration?: string;
+  orderIndex?: number;
+  status: 'PUBLISHED' | 'DRAFT';
 }
 
 // --- ADMIN SPECIFIC TYPES ---
 
-export type AdminPage = 'dashboard' | 'partners' | 'orders' | 'products' | 'collections' | 'inventory' | 'catalog' | 'pricing' | 'reports' | 'settings';
+export type AdminPage = 'dashboard' | 'partners' | 'orders' | 'products' | 'collections' | 'inventory' | 'pricing' | 'reports' | 'settings' | 'vision' | 'academy';
 
 export interface Partner {
   id: string;
@@ -85,6 +137,14 @@ export interface Partner {
   joinDate: string;
   status: 'ACTIVE' | 'PENDING' | 'INACTIVE' | 'APPROVED' | 'REJECTED';
   monthlySpend: number;
+  academyAccessStatus?: 'ACTIVE' | 'INACTIVE';
+  academyAccessType?: 'AUTOMATIC' | 'TEMPORARY' | 'PERMANENT';
+  academyAccessUntil?: string;
+  academyAccess?: {
+    status: 'ACTIVE' | 'INACTIVE';
+    type: 'AUTOMATIC' | 'TEMPORARY' | 'PERMANENT';
+    until?: string;
+  };
 }
 
 export interface AdminOrderItem {
@@ -101,6 +161,11 @@ export interface AdminOrder {
   tier: UserTier;
   total: number;
   status: 'PREPARATION' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+  channel: string;
+  paymentStatus: string;
+  deliveryStatus: string;
+  deliveryMethod: string;
+  tags: string[];
   itemsCount: number;
   items?: AdminOrderItem[]; // Optional for list view, required for detail view
   shippingAddress?: string;
@@ -195,6 +260,8 @@ export type TranslationKey =
   | 'admin_nav_pricing'
   | 'admin_nav_reports'
   | 'admin_nav_settings'
+  | 'admin_nav_vision'
+  | 'admin_nav_academy'
   | 'admin_nav_operational'
   | 'admin_nav_strategy'
   | 'admin_logout'
@@ -258,6 +325,125 @@ export type TranslationKey =
   | 'admin_nav_prospects'
   | 'partners_search_placeholder'
   | 'partners_tab_partners'
-  | 'partners_tab_prospects';
+  | 'partners_tab_prospects'
+  | 'partners_table_actions'
+  | 'partners_loading'
+  | 'partners_empty'
+  | 'partners_approve'
+  | 'partners_reject'
+  | 'partners_table_prospect'
+  | 'partners_table_source'
+  | 'partners_lead_date'
+  | 'partners_prospect_empty'
+  | 'partners_main_contact'
+  | 'partners_business_email'
+  | 'partners_profile_info'
+  | 'partners_location'
+  | 'partners_joined'
+  | 'partners_tier_level'
+  | 'partners_new_title'
+  | 'partners_new_subtitle'
+  | 'partners_label_institute'
+  | 'partners_label_contact'
+  | 'partners_label_location'
+  | 'partners_label_tier'
+  | 'partners_tier_standard_desc'
+  | 'partners_tier_premium_desc'
+  | 'partners_btn_create'
+  // Academy Admin & Access
+  | 'academy_admin_title'
+  | 'academy_admin_subtitle'
+  | 'academy_admin_create'
+  | 'academy_admin_search'
+  | 'academy_admin_empty'
+  | 'academy_admin_loading'
+  | 'academy_resource_video'
+  | 'academy_resource_pdf'
+  | 'academy_resource_course'
+  | 'academy_resource_masterclass'
+  | 'academy_resource_webinar'
+  | 'academy_resource_download'
+  | 'academy_form_title'
+  | 'academy_form_desc'
+  | 'academy_form_type'
+  | 'academy_form_cat'
+  | 'academy_form_tier'
+  | 'academy_form_status'
+  | 'academy_form_thumb'
+  | 'academy_form_url_pdf'
+  | 'academy_form_url_video'
+  | 'academy_form_duration'
+  | 'academy_form_order'
+  | 'academy_form_submit'
+  | 'academy_form_update'
+  | 'academy_form_new'
+  | 'academy_form_tier_std'
+  | 'academy_form_tier_prem'
+  | 'academy_form_tier_spec'
+  | 'academy_access_title'
+  | 'academy_access_active'
+  | 'academy_access_locked'
+  | 'academy_access_perm'
+  | 'academy_access_temp'
+  | 'academy_access_disable'
+  | 'academy_access_expire'
+  | 'academy_access_updated'
+  | 'academy_admin_save_error'
+  | 'academy_admin_delete_confirm'
+  | 'common_no_description'
+  | 'common_edit'
+  | 'common_delete'
+  | 'academy_form_title_placeholder'
+  | 'academy_form_desc_placeholder'
+  | 'academy_form_cat_placeholder'
+  | 'academy_form_url_general'
+  | 'academy_form_url_pdf_placeholder'
+  | 'academy_form_url_video_placeholder'
+  | 'academy_form_url_general_placeholder'
+  | 'academy_form_duration_placeholder'
+  | 'common_error'
+  | 'academy_access_restricted'
+  | 'academy_upsell_badge'
+  | 'academy_upsell_title'
+  | 'academy_upsell_desc'
+  | 'academy_upsell_target'
+  | 'academy_upsell_btn'
+  // Strategic Order Module
+  | 'order_fixed_summary'
+  | 'order_retail_val'
+  | 'order_potential_profit'
+  | 'order_avg_margin'
+  | 'order_tier_advance'
+  | 'order_pack_title'
+  | 'order_optimize_btn'
+  | 'order_roi_alert'
+  | 'order_filter_margin'
+  | 'order_filter_rotation'
+  | 'order_filter_elite'
+  | 'order_label_best_seller'
+  | 'order_label_high_rotation'
+  | 'order_label_high_margin'
+  | 'order_label_strategic'
+  | 'order_label_tendency'
+  | 'order_label_recommended'
+  | 'order_unit_profit'
+  | 'order_rrp_price'
+  // Strategic Academy 2.0
+  | 'academy_level_std'
+  | 'academy_level_prem_base'
+  | 'academy_level_prem_pro'
+  | 'academy_level_prem_elite'
+  | 'academy_progress_title'
+  | 'academy_progress_unlock'
+  | 'academy_lock_title_premium'
+  | 'academy_lock_title_elite'
+  | 'academy_lock_btn_upgrade'
+  | 'academy_lock_requirement_elite'
+  | 'academy_stat_efficiency'
+  | 'academy_certificate_badge'
+  | 'academy_certificate_download'
+  | 'academy_dash_recommended'
+  | 'academy_dash_new'
+  | 'academy_dash_trend';
 
 export type Translations = Record<Language, Record<TranslationKey, string>>;

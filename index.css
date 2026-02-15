@@ -4,14 +4,18 @@
 
 :root {
   --derma-white: #FFFFFF;
-  --derma-bg: #F4F6F8;
+  --derma-bg: #FFFFFF;
+  /* Pure White Medical Background */
+  --derma-cream: #FAFAF8;
+  /* Subtle background for sections */
   --derma-gold: #C0A76A;
-  --derma-blue: #3E5C76;
+  --derma-gold-muted: #D4B87C;
+  --derma-blue-executive: #2C3E50;
   --derma-text: #1A1A1A;
-  --derma-text-muted: #636E72;
-  --derma-border: #E9ECEF;
-  --derma-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --derma-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --derma-text-muted: #7F8C8D;
+  --derma-border: #F0F0F0;
+  --derma-shadow-premium: 0 4px 20px rgba(0, 0, 0, 0.03);
+  --derma-shadow-deep: 0 12px 40px rgba(0, 0, 0, 0.06);
 }
 
 @layer base {

@@ -46,6 +46,11 @@ const AdminOrders: React.FC = () => {
                 tier: o.partner_users?.tier as UserTier || UserTier.STANDARD,
                 total: Number(o.total_amount || 0),
                 status: (o.status || 'PREPARATION') as any,
+                channel: o.channel || 'Online Store',
+                paymentStatus: o.payment_status || 'Pagado',
+                deliveryStatus: o.delivery_status || 'En attente',
+                deliveryMethod: o.delivery_method || 'Standard',
+                tags: Array.isArray(o.tags) ? o.tags : [],
                 itemsCount: Array.isArray(o.items) ? (o.items as any[]).reduce((sum, item) => sum + (item.quantity || 0), 0) : 0,
                 items: Array.isArray(o.items) ? o.items : [],
                 shippingAddress: o.partner_users?.address || ''
@@ -154,10 +159,15 @@ const AdminOrders: React.FC = () => {
                         <tr>
                             <th className="px-6 py-4">Commande</th>
                             <th className="px-6 py-4">Date</th>
-                            <th className="px-6 py-4">Partenaire</th>
-                            <th className="px-6 py-4 text-center">Articles</th>
+                            <th className="px-6 py-4">Client</th>
+                            <th className="px-6 py-4">Canal</th>
                             <th className="px-6 py-4 text-right">Total</th>
-                            <th className="px-6 py-4">Statut</th>
+                            <th className="px-6 py-4">Estado del pago</th>
+                            <th className="px-6 py-4">Estado de preparación</th>
+                            <th className="px-6 py-4 text-center">Artículos</th>
+                            <th className="px-6 py-4">Estado de la entrega</th>
+                            <th className="px-6 py-4">Forma de entrega</th>
+                            <th className="px-6 py-4">Etiquetas</th>
                             <th className="px-6 py-4 text-right">Action</th>
                         </tr>
                     </thead>
@@ -170,9 +180,31 @@ const AdminOrders: React.FC = () => {
                                     <div className="text-sm font-medium text-[#1A1A1A]">{order.partnerName}</div>
                                     {order.tier === UserTier.PREMIUM && <span className="text-[10px] text-[#C0A76A] font-bold">Premium</span>}
                                 </td>
-                                <td className="px-6 py-4 text-center text-sm text-[#6B6B6B]">{order.itemsCount}</td>
+                                <td className="px-6 py-4 text-sm text-[#6B6B6B]">{order.channel}</td>
                                 <td className="px-6 py-4 text-right font-oswald text-[#1A1A1A]">CHF {order.total.toFixed(2)}</td>
+                                <td className="px-6 py-4">
+                                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-semibold bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                                        {order.paymentStatus}
+                                    </span>
+                                </td>
                                 <td className="px-6 py-4"><StatusBadge status={order.status} /></td>
+                                <td className="px-6 py-4 text-center text-sm text-[#6B6B6B]">{order.itemsCount} artículos</td>
+                                <td className="px-6 py-4">
+                                    <span className="px-2.5 py-1 rounded text-[11px] font-semibold bg-gray-100 text-gray-600">
+                                        {order.deliveryStatus}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-[#6B6B6B] whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]" title={order.deliveryMethod}>
+                                    {order.deliveryMethod}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="flex gap-1">
+                                        {order.tags.map((tag, idx) => (
+                                            <span key={idx} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[10px] rounded">{tag}</span>
+                                        ))}
+                                    </div>
+                                </td>
                                 <td className="px-6 py-4 text-right">
                                     <button
                                         onClick={() => setSelectedOrder(order)}
