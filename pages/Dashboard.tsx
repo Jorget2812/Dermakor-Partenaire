@@ -16,8 +16,9 @@ import {
     BookOpen,
     Play,
     Sparkles,
-    ChevronRight as ChevronRightIcon,
-    Lock
+    Lock,
+    Bell,
+    CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../context/LanguageContext';
@@ -31,6 +32,7 @@ const Dashboard: React.FC = () => {
     const { t } = useLanguage();
     const navigate = useNavigate();
     const [recentOrders, setRecentOrders] = useState<any[]>([]);
+    const [notifications, setNotifications] = useState<any[]>([]);
     const [stats, setStats] = useState({
         currentSpend: 0,
         monthlyGoal: 300,
@@ -57,6 +59,18 @@ const Dashboard: React.FC = () => {
                     ordersCount: orders?.length || 0
                 });
                 setRecentOrders(orders || []);
+
+                // Fetch Notifications
+                const { data: notifies } = await supabase
+                    .from('notifications')
+                    .select('*')
+                    .eq('partner_id', user.id)
+                    .eq('is_read', false)
+                    .order('created_at', { ascending: false })
+                    .limit(3);
+
+                setNotifications(notifies || []);
+
             } catch (err) {
                 console.error('Dashboard: Error loading data:', err);
             } finally {
@@ -66,7 +80,22 @@ const Dashboard: React.FC = () => {
         loadDashboardData();
     }, [user]);
 
-    const handleOrderRedirect = () => navigate('/dashboard/order');
+    const handleOrderRedirect = () => navigate('/dashboard/orders');
+
+    const markNotificationsAsRead = async () => {
+        if (!user || notifications.length === 0) return;
+        try {
+            const { error } = await supabase
+                .from('notifications')
+                .update({ is_read: true })
+                .eq('partner_id', user.id);
+
+            if (error) throw error;
+            setNotifications([]);
+        } catch (err) {
+            console.error('Error marking notifications as read:', err);
+        }
+    };
 
     const calculateSimulatedProfit = (spend: number) => {
         const margin = spend >= 4000 ? 0.44 : spend >= 2000 ? 0.42 : 0.40;
@@ -221,12 +250,44 @@ const Dashboard: React.FC = () => {
                                 </div>
                                 <p className="text-[10px] font-bold text-derma-black uppercase tracking-tight">Upselling Dermocosmétique</p>
                             </div>
-                            <ChevronRightIcon size={14} className="text-derma-border group-hover:text-derma-gold transition-all" />
+                            <ChevronRight size={14} className="text-derma-border group-hover:text-derma-gold transition-all" />
                         </div>
                     </div>
                     <p className="text-[9px] text-derma-text-muted italic mt-4">Protocoles à haute valeur ajoutée.</p>
                 </div>
             </div>
+
+            {/* Notifications Section */}
+            {notifications.length > 0 && (
+                <div className="bg-[#1A1A1A] text-white p-6 rounded-sm shadow-deep border-l-4 border-derma-gold flex flex-col md:flex-row items-start md:items-center justify-between gap-6 overflow-hidden relative">
+                    <div className="flex items-center gap-4 relative z-10">
+                        <div className="p-3 bg-derma-gold/20 rounded-full">
+                            <Bell className="text-derma-gold animate-bounce" size={24} />
+                        </div>
+                        <div>
+                            <h3 className="text-xs font-bold uppercase tracking-[3px] text-derma-gold-muted mb-1">Centre de Notifications</h3>
+                            <p className="text-lg font-serif">{notifications[0].title}</p>
+                            <p className="text-sm text-gray-400 mt-1 max-w-xl">{notifications[0].message}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 relative z-10">
+                        <button
+                            onClick={markNotificationsAsRead}
+                            className="text-xs text-gray-400 hover:text-white transition-colors"
+                        >
+                            Ignorer
+                        </button>
+                        <button
+                            onClick={() => navigate('/dashboard/orders')}
+                            className="px-6 py-3 bg-derma-gold text-derma-black text-[10px] font-bold uppercase tracking-widest hover:bg-white transition-all shadow-lg"
+                        >
+                            Détails de la commande
+                        </button>
+                    </div>
+                    {/* Decorative element */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+                </div>
+            )}
 
             {/* Block C: Grow Simulator & Strategic Training */}
             <div className="space-y-8">
@@ -286,7 +347,7 @@ const Dashboard: React.FC = () => {
                         onClick={handleOrderRedirect}
                         className="text-[10px] uppercase tracking-widest text-derma-gold font-bold hover:underline flex items-center gap-1"
                     >
-                        {t('dash_view_all')} <ChevronRightIcon size={12} />
+                        {t('dash_view_all')} <ChevronRight size={12} />
                     </button>
                 </div>
 
@@ -306,10 +367,19 @@ const Dashboard: React.FC = () => {
                                     <td className="py-4 text-xs font-medium text-derma-black">#{order.id.slice(0, 8)}</td>
                                     <td className="py-4 text-xs text-derma-text-muted">{new Date(order.created_at).toLocaleDateString()}</td>
                                     <td className="py-4">
-                                        <span className={`text-[9px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full ${order.status === 'DELIVERED' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'
-                                            }`}>
-                                            {order.status}
-                                        </span>
+                                        <div className="flex flex-col gap-1">
+                                            <span className={`text-[9px] w-fit uppercase tracking-widest font-bold px-2 py-0.5 rounded-full ${order.status === 'DELIVERED' ? 'bg-green-50 text-green-600' :
+                                                order.status === 'SHIPPED' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'
+                                                }`}>
+                                                {order.status === 'SHIPPED' ? 'Expédiée' : order.status === 'DELIVERED' ? 'Livrée' : order.status}
+                                            </span>
+                                            {order.status === 'SHIPPED' && order.tracking_number && (
+                                                <div className="flex flex-col">
+                                                    <span className="text-[8px] text-derma-text-muted uppercase font-bold">{order.carrier || 'Swiss Post'}</span>
+                                                    <span className="text-[10px] text-derma-gold font-mono font-bold">{order.tracking_number}</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="py-4 text-xs font-medium text-derma-black text-right">CHF {order.total_amount.toLocaleString()}</td>
                                 </tr>

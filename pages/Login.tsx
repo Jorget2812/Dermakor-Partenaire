@@ -32,6 +32,7 @@ const Login: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log('Login: Attempting sign-in for', email);
         setIsLoading(true);
         setError(null);
 
@@ -42,40 +43,85 @@ const Login: React.FC = () => {
             });
 
             if (authError) {
+                console.error('Login: Auth error:', authError);
                 if (authError.message === 'Invalid login credentials') {
                     throw new Error('Identifiants invalides. Veuillez vérifier vos accès.');
                 }
                 throw authError;
             }
 
-            // Check if user has corresponding tier or admin access
-            const { data: profileData, error: profileError } = await supabase
+            console.log('Login: Auth successful for user:', authData.user.id);
+
+            const userId = authData.user.id;
+            const userEmail = email.trim().toLowerCase();
+
+            // BYPASS INMEDIATO PARA MASTER ADMINS
+            const masterAdmins = [
+                'jorge@dermakorswiss.com',
+                'jorge@dermakor.com',
+                'jorge@dermakor.ch',
+                'torresjorge2812@gmail.com',
+                'jorgetorres2812@gmail.com',
+                'georgitorres2812@gmail.com',
+                'admin@dermakorswiss.com'
+            ];
+
+            if (masterAdmins.includes(userEmail)) {
+                console.log('Login: Master Admin detected. Bypassing profile checks.');
+                navigate('/dashboard');
+                return;
+            }
+
+            // 1. Intentar buscar en partner_users (Prioridad 1: ID, Prioridad 2: Email)
+            let { data: partnerData } = await supabase
                 .from('partner_users')
                 .select('status, tier')
-                .eq('id', authData.user.id)
-                .single();
+                .eq('id', userId)
+                .maybeSingle();
 
-            if (profileError) {
-                // Check for admin
+            if (!partnerData) {
+                const { data: partnerByEmail } = await supabase
+                    .from('partner_users')
+                    .select('status, tier')
+                    .eq('email', userEmail)
+                    .maybeSingle();
+                partnerData = partnerByEmail;
+            }
+
+            if (!partnerData) {
+                console.log('Login: No partner record found by ID or Email, checking admin profiles');
                 const { data: adminData } = await supabase
                     .from('profiles')
-                    .select('*')
-                    .eq('id', authData.user.id)
-                    .single();
+                    .select('role')
+                    .eq('id', userId)
+                    .maybeSingle();
 
                 if (adminData) {
                     navigate('/dashboard');
                     return;
                 }
+
+                // Fallback final: Si es un Master Admin pero no tiene perfil ni partner_user, le creamos acceso
+                if (masterAdmins.includes(userEmail)) {
+                    console.log('Login: Master Admin access granted via fallback list');
+                    navigate('/dashboard');
+                    return;
+                }
+
+                console.error('Login: Profile not found for user');
                 throw new Error('Profil introuvable.');
             }
 
-            const status = (profileData.status || '').toUpperCase();
+            // 3. Verificar estatus del socio
+            console.log('Login: Partner record found, status:', partnerData.status);
+            const status = (partnerData.status || '').toUpperCase();
             if (status !== 'APPROVED' && status !== 'ACTIVE') {
+                console.warn('Login: Account not approved:', status);
                 await supabase.auth.signOut();
                 throw new Error('Votre compte est en attente d\'approbation.');
             }
 
+            console.log('Login: Redirecting to dashboard...');
             navigate('/dashboard');
         } catch (err: any) {
             setError(err.message || 'Une erreur est survenue.');
@@ -161,6 +207,7 @@ const Login: React.FC = () => {
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="votre@clinique.ch"
                                         required
+                                        autoFocus
                                         className={`w-full bg-[#1A1A1C] border border-white/5 px-12 py-4 text-white text-sm rounded-xl focus:outline-none transition-all duration-300 ${isPremium ? 'focus:border-derma-gold focus:ring-4 focus:ring-derma-gold/5' : 'focus:border-white/20 focus:ring-4 focus:ring-white/5'}`}
                                     />
                                 </div>

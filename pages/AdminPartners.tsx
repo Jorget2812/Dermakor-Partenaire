@@ -466,7 +466,7 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <span className="text-[12px] text-derma-black font-medium">{prospect.contact_name}</span>
-                                                    <span className="text-[11px] text-gray-400 font-light">{prospect.email}</span>
+                                                    <span className="text-[11px] text-gray-400 font-light">{prospect.email || prospect.contact_email}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -483,8 +483,8 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
                                                         setNewPartner({
                                                             company_name: prospect.company_name,
                                                             contact_name: prospect.contact_name,
-                                                            email: prospect.email,
-                                                            address: prospect.city || '',
+                                                            email: prospect.email || prospect.contact_email,
+                                                            address: prospect.address || prospect.city || '',
                                                             tier: UserTier.STANDARD
                                                         });
                                                         setIsAddingPartner(true);
@@ -593,7 +593,7 @@ const AdminPartners: React.FC<AdminPartnersProps> = ({ onNavigate }) => {
 
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
-                                            onClick={() => handleUpdateAcademyAccess(selectedPartner.id, { status: 'ACTIVE', type: 'PERMANENT' })}
+                                            onClick={() => handleUpdateAcademyAccess(selectedPartner.id, { academy_access_status: 'ACTIVE', academy_access_type: 'PERMANENT' })}
                                             className={`p-4 border rounded flex flex-col items-center gap-2 transition-all ${(selectedPartner as any).academy_access_status === 'ACTIVE' && (selectedPartner as any).academy_access_type === 'PERMANENT' ? 'bg-derma-black text-white border-derma-black shadow-md' : 'bg-white text-gray-400 border-derma-border hover:border-gray-300'}`}
                                         >
                                             <Unlock size={16} />

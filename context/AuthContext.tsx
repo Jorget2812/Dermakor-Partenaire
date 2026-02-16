@@ -39,8 +39,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return localStorage.getItem('derma_simulated_tier') as UserTier || null;
     });
     const isInitializing = React.useRef(false);
+    const failsafeTimer = React.useRef<any>(null);
+
+    // Helper to wrap promises with timeout
+    const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number = 8000, context: string = ''): Promise<T> => {
+        let timeoutId: any;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => {
+                console.warn(`AuthContext: Timeout reached for ${context} after ${timeoutMs}ms`);
+                reject(new Error(`TIMEOUT_${context}`));
+            }, timeoutMs);
+        });
+
+        try {
+            const result = await Promise.race([promise, timeoutPromise]);
+            clearTimeout(timeoutId!);
+            return result as T;
+        } catch (err) {
+            clearTimeout(timeoutId!);
+            throw err;
+        }
+    };
 
     const fetchProfile = async (userId: string, email: string, simulationMode?: boolean, targetTier?: UserTier | null) => {
+        // Solo mostrar cargando si no tenemos ya un usuario (evita el parpadeo que bloquea el login)
+        if (!user) setIsLoading(true);
+
         const activeSimulation = simulationMode !== undefined ? simulationMode : isSimulatingPartner;
         const activeTier = targetTier !== undefined ? targetTier : simulatedTier;
 
@@ -50,35 +74,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const masterAdmins = [
                 'jorge@dermakorswiss.com',
                 'jorge@dermakor.com',
+                'jorge@dermakor.ch',
                 'torresjorge2812@gmail.com',
                 'jorgetorres2812@gmail.com',
-                'georgitorres2812@gmail.com'
+                'georgitorres2812@gmail.com',
+                'admin@dermakorswiss.com'
             ];
 
             const normalizedEmail = (email || '').trim().toLowerCase();
             const isMasterAdmin = normalizedEmail && masterAdmins.some(admin => admin.toLowerCase() === normalizedEmail);
 
-            // Fetch Partner Data safely (don't use .single() to avoid unnecessary exceptions)
-            const { data: partners, error: partnerError } = await supabase
+            // Fetch Partner Data safely with timeout
+            const partnerQuery = supabase
                 .from('partner_users')
                 .select('*')
                 .eq('email', normalizedEmail);
+
+            const { data: partners, error: partnerError } = (await withTimeout(Promise.resolve(partnerQuery), 5000, 'fetchPartner')
+                .catch(e => ({ data: null, error: e }))) as any;
 
             if (partnerError) {
                 console.error('AuthContext: Partner fetch error:', partnerError);
             }
 
             const partner = (partners && partners.length > 0) ? partners[0] : null;
-            console.log('AuthContext: Partner record found:', !!partner);
 
-            // Calculate Monthly Spend
+            // Fetch Orders/Spend with timeout
             const now = new Date();
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-            const { data: orders, error: ordersError } = await supabase
+
+            const spendQuery = supabase
                 .from('orders')
                 .select('total_amount')
                 .eq('partner_id', partner?.id || userId)
                 .gte('created_at', startOfMonth);
+
+            const { data: orders, error: ordersError } = (await withTimeout(Promise.resolve(spendQuery), 4000, 'fetchSpend')
+                .catch(e => ({ data: [], error: e }))) as any;
 
             if (ordersError) {
                 console.warn('AuthContext: Orders fetch error (continuing with 0):', ordersError);
@@ -86,46 +118,52 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             const currentSpend = orders?.reduce((sum, o) => sum + Number(o.total_amount), 0) || 0;
 
-            // Fetch Academy Completions & Certificates
-            const { data: completions } = await supabase
+            // Fetch Academy data with timeout
+            const academyQuery = supabase
                 .from('academy_completions')
                 .select('resource_id')
                 .eq('partner_id', partner?.id || userId);
 
-            const { data: certs } = await supabase
+            const completions = (await withTimeout(Promise.resolve(academyQuery), 3000, 'fetchAcademyCompletions')
+                .then((r: any) => r.data || [])
+                .catch(() => [])) as any[];
+
+            const certsQuery = supabase
                 .from('academy_certificates')
                 .select('level_id')
                 .eq('partner_id', partner?.id || userId);
 
-            const completedResources = completions?.map(c => c.resource_id) || [];
-            const certificates = certs?.map(c => c.level_id) || [];
+            const certificatesData = (await withTimeout(Promise.resolve(certsQuery), 3000, 'fetchAcademyCertificates')
+                .then((r: any) => r.data || [])
+                .catch(() => [])) as any[];
+
+            const completedResources = completions.map(c => c.resource_id) || [];
+            const certificates = certificatesData.map(c => c.level_id) || [];
 
             // Determine Tier Logic
-            // Premium Base: 800-1999
-            // Premium Pro: 2000-3999
-            // Premium Elite: 4000+
-            let calculatedTier = activeTier || UserTier.STANDARD;
+            // Priority: Active Simulation > Saved Partner Tier > Spend-based Tier
+            let calculatedTier = activeTier || (partner?.tier as UserTier) || UserTier.STANDARD;
             let monthlyGoal = 300;
 
             if (!activeTier) {
+                // Dynamic upgrade based on spend if not simulating
                 if (currentSpend >= 4000) {
                     calculatedTier = UserTier.PREMIUM_ELITE;
-                    monthlyGoal = 4000;
                 } else if (currentSpend >= 2000) {
                     calculatedTier = UserTier.PREMIUM_PRO;
-                    monthlyGoal = 2000;
-                } else if (currentSpend >= 800) {
+                } else if (currentSpend >= 800 && calculatedTier === UserTier.STANDARD) {
+                    // Only auto-upgrade to BASE if they were STANDARD
                     calculatedTier = UserTier.PREMIUM_BASE;
-                    monthlyGoal = 800;
                 }
-            } else {
-                // Fixed goals for simulated tiers
-                if (calculatedTier === UserTier.PREMIUM_ELITE) monthlyGoal = 4000;
-                else if (calculatedTier === UserTier.PREMIUM_PRO) monthlyGoal = 2000;
-                else if (calculatedTier === UserTier.PREMIUM_BASE || calculatedTier === UserTier.PREMIUM) monthlyGoal = 800;
-                else monthlyGoal = 300;
             }
-            console.log(`AuthContext: Calculated tier: ${calculatedTier}, Monthly goal: ${monthlyGoal}`);
+
+            // Set monthly goal based on the final tier
+            if (calculatedTier === UserTier.PREMIUM_ELITE) monthlyGoal = 4000;
+            else if (calculatedTier === UserTier.PREMIUM_PRO) monthlyGoal = 2000;
+            else if (calculatedTier === UserTier.PREMIUM_BASE || calculatedTier === UserTier.PREMIUM) monthlyGoal = 800;
+            else monthlyGoal = 300;
+
+            console.log(`AuthContext: Final tier: ${calculatedTier}, Monthly goal: ${monthlyGoal}`);
 
             // Profit Calculation (Mock margins for demonstration)
             const margin = calculatedTier === UserTier.PREMIUM_ELITE ? 0.44 :
@@ -156,6 +194,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 academyAccessStatus: partner?.academy_access_status || 'ACTIVE',
                 academyAccessType: partner?.academy_access_type || 'AUTOMATIC',
                 academyAccessUntil: partner?.academy_access_until,
+                address: partner?.address || '',
                 completedResources,
                 certificates
             };
@@ -236,13 +275,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     useEffect(() => {
-        // Failsafe: prevent infinite loading
+        // STRONG FAILSAFE: Ensure loading finishes no matter what after 7 seconds
+        // This timer runs independently of everything else
+        console.log('AuthContext: Starting 7s failsafe...');
         const timer = setTimeout(() => {
-            if (isLoading) {
-                console.warn('AuthContext: Failsafe triggered after 3s');
-                setIsLoading(false);
-            }
-        }, 5000); // Increased a bit for slower local DB connections
+            setIsLoading(current => {
+                if (current) {
+                    console.warn('AuthContext: EMERGENCY FAILSAFE TRIGGERED. Forcing isLoading = false.');
+                    return false;
+                }
+                return current;
+            });
+        }, 7000);
+
+        failsafeTimer.current = timer;
 
         const init = async () => {
             if (isInitializing.current) return;

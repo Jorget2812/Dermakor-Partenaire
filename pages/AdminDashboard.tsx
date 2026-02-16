@@ -13,7 +13,15 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '../utils/supabase';
 
-const AdminDashboard: React.FC = () => {
+import { useNavigate } from 'react-router-dom';
+import { AdminPage } from '../types';
+
+interface AdminDashboardProps {
+    onNavigate?: (page: AdminPage) => void;
+}
+
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
+    const navigate = useNavigate();
     const [stats, setStats] = useState({
         activePartners: 0,
         monthlyOrders: 0,
@@ -28,6 +36,7 @@ const AdminDashboard: React.FC = () => {
     const [topProducts, setTopProducts] = useState<any[]>([]);
     const [topPartners, setTopPartners] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [displayMode, setDisplayMode] = useState<'CHF' | 'UNITS'>('CHF');
 
     const fetchDashboardData = async () => {
         setIsLoading(true);
@@ -38,7 +47,7 @@ const AdminDashboard: React.FC = () => {
 
             const { data: ordersData, error: ordersError } = await supabase
                 .from('orders')
-                .select(`id, total_amount, created_at, status, items, partner_users (company_name, tier)`)
+                .select(`id, total_amount, created_at, status, items, partner_users (company_name, tier), profiles (email, full_name)`)
                 .order('created_at', { ascending: false });
 
             const { data: productsData } = await supabase.from('products').select('sku, cost_price, name, category, stock_quantity');
@@ -56,7 +65,7 @@ const AdminDashboard: React.FC = () => {
 
                 const processedOrders = ordersData.map(order => {
                     const items = (order.items || []) as any[];
-                    const partnerName = (order.partner_users as any)?.company_name || 'Inconnu';
+                    const partnerName = (order.partner_users as any)?.company_name || (order.profiles as any)?.full_name || (order.profiles as any)?.email || 'Inconnu';
                     let orderCost = 0;
 
                     items.forEach(item => {
@@ -107,7 +116,7 @@ const AdminDashboard: React.FC = () => {
 
                 setRecentOrders(processedOrders.slice(0, 5).map(o => ({
                     id: (o.id || '').toString().slice(0, 8).toUpperCase(),
-                    name: (o.partner_users as any)?.company_name || 'Inconnu',
+                    name: (o.partner_users as any)?.company_name || (o.profiles as any)?.full_name || (o.profiles as any)?.email || 'Inconnu',
                     amount: `CHF ${Number(o.total_amount || 0).toFixed(2)}`,
                     profit: `CHF ${Number(o.profit || 0).toFixed(2)}`,
                     time: o.created_at ? new Date(o.created_at).toLocaleDateString() : 'N/A',
@@ -184,7 +193,12 @@ const AdminDashboard: React.FC = () => {
                     <div>
                         <h4 className="text-[11px] font-black uppercase tracking-[0.2em] opacity-70">Alertas de Suministro</h4>
                         <p className="text-[13px] font-bold leading-tight mt-1">3 Productos críticos con stock inferior a 7 días.</p>
-                        <button className="text-[10px] font-black uppercase tracking-widest mt-2 underline decoration-derma-gold decoration-2 underline-offset-4">Gestionar Inventario</button>
+                        <button
+                            onClick={() => onNavigate ? onNavigate('inventory' as any) : navigate('/admin/inventory')}
+                            className="text-[10px] font-black uppercase tracking-widest mt-2 underline decoration-derma-gold decoration-2 underline-offset-4"
+                        >
+                            Gestionar Inventario
+                        </button>
                     </div>
                 </div>
             </div>
@@ -205,8 +219,18 @@ const AdminDashboard: React.FC = () => {
                                 <p className="text-[10px] text-derma-text-muted uppercase font-bold tracking-[.2em] mt-1">Flujo de facturación por período</p>
                             </div>
                             <div className="flex gap-2">
-                                <button className="px-4 py-2 bg-derma-bg text-derma-text text-[10px] font-bold rounded-md border border-derma-border uppercase tracking-widest">CHF</button>
-                                <button className="px-4 py-2 bg-white text-derma-text-muted text-[10px] font-bold rounded-md border border-derma-border uppercase tracking-widest">Unidades</button>
+                                <button
+                                    onClick={() => setDisplayMode('CHF')}
+                                    className={`px-4 py-2 text-[10px] font-bold rounded-md border border-derma-border uppercase tracking-widest transition-all ${displayMode === 'CHF' ? 'bg-derma-bg text-derma-text' : 'bg-white text-derma-text-muted hover:bg-gray-50'}`}
+                                >
+                                    CHF
+                                </button>
+                                <button
+                                    onClick={() => setDisplayMode('UNITS')}
+                                    className={`px-4 py-2 text-[10px] font-bold rounded-md border border-derma-border uppercase tracking-widest transition-all ${displayMode === 'UNITS' ? 'bg-derma-bg text-derma-text' : 'bg-white text-derma-text-muted hover:bg-gray-50'}`}
+                                >
+                                    Unidades
+                                </button>
                             </div>
                         </div>
                         <div className="h-[350px] w-full">
@@ -293,7 +317,10 @@ const AdminDashboard: React.FC = () => {
                                 <div className="w-full h-1 bg-white/10 rounded-full mb-4">
                                     <div className="h-full bg-derma-gold w-[34%]"></div>
                                 </div>
-                                <button className="w-full py-3 bg-white text-derma-blue text-[10px] font-black uppercase tracking-widest rounded shadow-lg hover:shadow-xl transition-luxury">
+                                <button
+                                    onClick={() => onNavigate ? onNavigate('vision' as any) : navigate('/admin/vision')}
+                                    className="w-full py-3 bg-white text-derma-blue text-[10px] font-black uppercase tracking-widest rounded shadow-lg hover:shadow-xl transition-luxury"
+                                >
                                     Plan de Crecimiento
                                 </button>
                             </div>
@@ -345,7 +372,12 @@ const AdminDashboard: React.FC = () => {
                                 </div>
                             ))}
                         </div>
-                        <button className="w-full mt-8 py-3 text-[10px] font-black uppercase tracking-widest text-derma-text-muted border border-derma-border rounded-lg hover:bg-derma-bg transition-colors">Ver todas las transacciones</button>
+                        <button
+                            onClick={() => onNavigate ? onNavigate('orders' as any) : navigate('/admin/orders')}
+                            className="w-full mt-8 py-3 text-[10px] font-black uppercase tracking-widest text-derma-text-muted border border-derma-border rounded-lg hover:bg-derma-bg transition-colors"
+                        >
+                            Ver todas las transacciones
+                        </button>
                     </div>
                 </div>
             </div>

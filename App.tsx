@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Order from './pages/Order';
 import Academy from './pages/Academy';
+import PartnerOrders from './pages/PartnerOrders';
 import LandingPage from './pages/LandingPage';
 import RegistrationForm from './pages/RegistrationForm';
 import { useAuth } from './hooks/useAuth';
@@ -68,8 +69,19 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 const AppContent: React.FC = () => {
-  const { user, logout, isLoading } = useAuth();
+  const { user, logout, resetApp, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [showReset, setShowReset] = React.useState(false);
+
+  React.useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isLoading) {
+      timer = setTimeout(() => setShowReset(true), 5000);
+    } else {
+      setShowReset(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   React.useEffect(() => {
     console.log('--- APP DEBUG ---', {
@@ -87,6 +99,14 @@ const AppContent: React.FC = () => {
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#C0A76A]"></div>
           <p className="font-oswald text-[10px] uppercase tracking-[0.3em] text-gray-400 animate-pulse">Initialisation...</p>
+          {showReset && (
+            <button
+              onClick={() => resetApp()}
+              className="mt-4 text-[9px] uppercase tracking-widest text-red-800 font-bold hover:underline"
+            >
+              Problème de connexion? Cliquez ici pour réinitialiser
+            </button>
+          )}
         </div>
       </div>
     );
@@ -113,6 +133,7 @@ const AppContent: React.FC = () => {
               <Routes>
                 <Route index element={<Dashboard />} />
                 <Route path="order" element={<Order />} />
+                <Route path="orders" element={<PartnerOrders />} />
                 <Route path="academy" element={<Academy user={user as any} />} />
                 <Route path="*" element={<Navigate to="" replace />} />
               </Routes>
@@ -132,7 +153,7 @@ const AppContent: React.FC = () => {
               onNavigate={(page) => navigate(`/admin/${page}`)}
             >
               <Routes>
-                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="dashboard" element={<AdminDashboard onNavigate={(page) => navigate(`/admin/${page}`)} />} />
                 <Route path="vision" element={<AdminStrategicOverview />} />
                 <Route path="partners" element={<AdminPartners onNavigate={(page) => navigate(`/admin/${page}`)} />} />
                 <Route path="orders" element={<AdminOrders />} />

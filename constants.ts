@@ -123,6 +123,8 @@ export const TRANSLATIONS: Translations = {
     common_archived: "Archivé",
     common_draft: "Brouillon",
     common_in_stock: "en stock",
+    common_back: "Retour",
+    common_search: "Rechercher",
     common_no_results: "Aucun produit trouvé",
     catalog_table_title: "Titre",
     catalog_table_conditions: "Conditions des produits",
@@ -261,6 +263,7 @@ export const TRANSLATIONS: Translations = {
     academy_dash_recommended: "Formation recommandée ce mois",
     academy_dash_new: "Nouveau module disponible",
     academy_dash_trend: "Protocole tendance actuelle",
+    catalog_table_web_price: "Prix Public (Web)",
   },
   [Language.DE]: {
     login_title: "Partnerbereich",
@@ -386,6 +389,8 @@ export const TRANSLATIONS: Translations = {
     common_archived: "Archiviert",
     common_draft: "Entwurf",
     common_in_stock: "auf Lager",
+    common_back: "Zurück",
+    common_search: "Suchen",
     common_no_results: "Keine Produkte gefunden",
     catalog_table_title: "Titel",
     catalog_table_conditions: "Produktbedingungen",
@@ -522,6 +527,7 @@ export const TRANSLATIONS: Translations = {
     academy_dash_recommended: "Empfohlene Schulung diesen Monat",
     academy_dash_new: "Neues Modul verfügbar",
     academy_dash_trend: "Aktuelles Trend-Protokoll",
+    catalog_table_web_price: "Öffentlicher Preis (Web)",
   },
   [Language.IT]: {
     login_title: "Area Partner",
@@ -647,6 +653,8 @@ export const TRANSLATIONS: Translations = {
     common_archived: "Archiviato",
     common_draft: "Bozza",
     common_in_stock: "in stock",
+    common_back: "Indietro",
+    common_search: "Cerca",
     common_no_results: "Nessun prodotto trovato",
     catalog_table_title: "Titolo",
     catalog_table_conditions: "Condizioni del prodotto",
@@ -783,6 +791,7 @@ export const TRANSLATIONS: Translations = {
     academy_dash_recommended: "Formazione consigliata questo mese",
     academy_dash_new: "Nuovo modulo disponibile",
     academy_dash_trend: "Protocollo tendenza attuale",
+    catalog_table_web_price: "Prezzo Pubblico (Web)",
   },
 };
 

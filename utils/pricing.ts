@@ -1,16 +1,27 @@
 import { Product, UserTier, ProductPricing } from '../types';
 
+import { PROFIT_RULES } from '../constants/financials';
+
 /**
  * Calculates the final price for a specific user tier based on the product's pricing configuration.
+ * New Logic: If retailPrice (PVC) is set, use it to derive pro price via multiplier.
  */
 export const calculateUserPrice = (product: Product, tier: UserTier): number => {
-  // Fallback to legacy price if no pricing object exists
+  // 1. PVC Strategy: If retailPrice is explicitly set, derive Pro price dynamically
+  if (product.retailPrice && product.retailPrice > 0) {
+    const isPremium = tier.startsWith('PREMIUM');
+    const divisor = isPremium ? PROFIT_RULES.MULTIPLIER_PREMIUM : PROFIT_RULES.MULTIPLIER_STANDARD;
+    return parseFloat((product.retailPrice / divisor).toFixed(2));
+  }
+
+  // 2. Legacy / Manual Strategy
   if (!product.pricing) {
     return product.price;
   }
 
   const { basePrice, standard, premium } = product.pricing;
-  const config = tier === UserTier.PREMIUM ? premium : standard;
+  const isPremium = tier.startsWith('PREMIUM');
+  const config = isPremium ? premium : standard;
 
   if (config.type === 'FIXED') {
     return config.value;

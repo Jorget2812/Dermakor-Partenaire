@@ -31,9 +31,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
     });
 
     React.useEffect(() => {
+        // Solo resetear si definitivamente no hay usuario después de cargar,
+        // o si hay una inconsistencia grave persistente.
+        // Aumentamos la tolerancia para evitar el race condition durante el login.
         if (!user && isAuthenticated && !isLoading) {
-            console.warn('ProtectedRoute: Authenticated but NO PROFILE. Logging out...');
-            handleLogoutAndHome();
+            const timeout = setTimeout(() => {
+                if (!user && isAuthenticated && !isLoading) {
+                    console.warn('ProtectedRoute: Profile FETCH TIMEOUT. Logging out...');
+                    handleLogoutAndHome();
+                }
+            }, 3000); // Dar 3 segundos de gracia para que AuthContext termine de cargar el perfil
+            return () => clearTimeout(timeout);
         }
     }, [user, isAuthenticated, isLoading]);
 

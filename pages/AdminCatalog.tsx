@@ -55,6 +55,8 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
     const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [isBulkEditing, setIsBulkEditing] = useState(false);
+    const [bulkEditChanges, setBulkEditChanges] = useState<Record<string, Partial<Product>>>({});
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Form State
@@ -169,14 +171,16 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
     };
 
     const handleExportCSV = () => {
-        const headers = ['Name', 'SKU', 'Category', 'Price', 'Stock', 'Status'];
+        const headers = ['Name', 'SKU', 'Category', 'Prix Web (PVC)', 'Stock', 'Status', 'Cost Price', 'Prix Pro'];
         const rows = filteredProducts.map(p => [
             p.name,
             p.sku,
             p.category,
-            p.price,
+            p.retailPrice || (p.price * 1.8).toFixed(2),
             p.stock_quantity,
-            p.status
+            p.status,
+            p.costPrice || (p.price * 0.45).toFixed(2),
+            p.price
         ]);
 
         const csvContent = [headers, ...rows].map(e => e.join(',')).join('\n');
@@ -201,25 +205,51 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
             const lines = text.split('\n');
             if (lines.length < 2) return;
 
+            // Detect delimiter automatically
+            const headerLine = lines[0];
+            const delimiter = headerLine.includes(';') && headerLine.split(';').length > headerLine.split(',').length ? ';' : ',';
+
             const importedProducts = lines.slice(1).filter(l => l.trim()).map(line => {
-                const values = line.split(',');
+                const values = line.split(delimiter);
+                const catName = values[2]?.trim();
+                const webPrice = parseFloat(values[3] || '0');
+                const isPremium = true; // Temporary logic for initial calculation
+                const proPrice = parseFloat((webPrice / 1.8).toFixed(2));
+                const qty = parseInt(values[4] || '0');
+
+                // Find matching category ID
+                const matchedCat = categories.find(c => c.name.toLowerCase() === catName?.toLowerCase());
+
                 return {
                     name: values[0]?.trim(),
                     sku: values[1]?.trim(),
-                    category: values[2]?.trim(),
-                    price: parseFloat(values[3] || '0'),
-                    stock_quantity: parseInt(values[4] || '0'),
+                    category: catName,
+                    category_id: matchedCat?.id || null,
+                    price: proPrice,
+                    stock_quantity: qty,
                     status: (values[5]?.trim() || 'ACTIVE').toUpperCase(),
-                    stock_status: parseInt(values[4] || '0') > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK'
+                    stock_status: qty > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK',
+                    cost_price: parseFloat(values[6] || (proPrice * 0.45).toFixed(2)),
+                    retail_price: webPrice
                 };
             });
 
-            const { error } = await supabase.from('products').upsert(importedProducts, { onConflict: 'sku' });
+            // Filter out empty SKUs and de-duplicate by SKU (case insensitive)
+            const uniqueMap = new Map();
+            importedProducts.forEach(p => {
+                if (p.sku) {
+                    uniqueMap.set(p.sku.toLowerCase(), p);
+                }
+            });
+            const uniqueProducts = Array.from(uniqueMap.values());
+            const duplicatesCount = importedProducts.length - uniqueProducts.length;
+
+            const { error } = await supabase.from('products').upsert(uniqueProducts, { onConflict: 'sku' });
             if (error) {
                 console.error(error);
                 alert('Erreur lors de l\'importation: ' + error.message);
             } else {
-                alert('Importation réussie !');
+                alert(`Importation réussie : ${uniqueProducts.length} productos procesados.${duplicatesCount > 0 ? ` (${duplicatesCount} doublons ignorés)` : ''}`);
                 await fetchData();
             }
         };
@@ -273,6 +303,65 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
         } catch (err) {
             console.error(err);
             alert('Erreur lors de la sauvegarde');
+        }
+    };
+
+    const handleBulkStatusUpdate = async (status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED') => {
+        if (!window.confirm(`${status === 'DRAFT' ? 'Marquer comme brouillon' : status === 'ARCHIVED' ? 'Archiver' : 'Activer'} ${selectedProducts.size} produits ?`)) return;
+        try {
+            const { error } = await supabase.from('products').update({ status }).in('id', Array.from(selectedProducts));
+            if (error) throw error;
+            setSelectedProducts(new Set());
+            await fetchData();
+        } catch (err) {
+            console.error(err);
+            alert('Erreur lors de la mise à jour massive');
+        }
+    };
+
+    const handleBulkSave = async () => {
+        const changesArray = Object.entries(bulkEditChanges).map(([id, changes]) => ({
+            id,
+            ...changes,
+            // Add other mandatory fields or derived fields if necessary
+            stock_status: changes.stock_quantity !== undefined ? (changes.stock_quantity > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK') : undefined
+        })).filter(item => Object.keys(item).length > 1);
+
+        if (changesArray.length === 0) {
+            setIsBulkEditing(false);
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const updatePromises = changesArray.map(item => {
+                const dbItem: any = {};
+                if (item.retailPrice !== undefined) dbItem.retail_price = item.retailPrice;
+                if (item.stock_quantity !== undefined) {
+                    dbItem.stock_quantity = item.stock_quantity;
+                    dbItem.stock_status = item.stock_quantity > 0 ? (item.stock_quantity < 10 ? 'LOW_STOCK' : 'IN_STOCK') : 'OUT_OF_STOCK';
+                }
+                if (item.status !== undefined) dbItem.status = item.status;
+
+                return supabase.from('products').update(dbItem).eq('id', item.id);
+            });
+
+            console.log(`Executing ${updatePromises.length} updates...`);
+            const results = await Promise.all(updatePromises);
+
+            const firstError = results.find(r => r.error)?.error;
+            if (firstError) throw firstError;
+
+            alert(`${changesArray.length} produits mis à jour avec succès`);
+            setIsBulkEditing(false);
+            setBulkEditChanges({});
+            setSelectedProducts(new Set());
+            await fetchData();
+        } catch (err: any) {
+            console.error('Bulk save error:', err);
+            alert(`Erreur lors du guardado: ${err.message || 'Error desconocido'}`);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -386,15 +475,41 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                         <h1 className="font-oswald text-2xl uppercase tracking-tighter text-derma-text">
                             {mode === 'all' ? t('admin_nav_products') : mode === 'inventory' ? t('admin_nav_inventory') : t('admin_nav_collections')}
                         </h1>
-                        {selectedProducts.size > 0 && (
-                            <div className="flex items-center gap-4 bg-derma-blue/10 border border-derma-blue/20 rounded-lg px-4 py-1.5 animate-fade-in">
-                                <span className="text-[11px] font-black text-derma-blue uppercase tracking-widest">{selectedProducts.size} SÉLECTIONNÉS</span>
+                        {selectedProducts.size > 0 && !isBulkEditing && (
+                            <div className="flex items-center gap-2 bg-derma-bg border border-derma-border rounded-lg px-3 py-1 animate-fade-in shadow-sm">
+                                <span className="text-[10px] font-black text-derma-text uppercase tracking-widest px-2 border-r border-derma-border mr-2">
+                                    {selectedProducts.size} SÉLECTIONNÉS
+                                </span>
+                                <button
+                                    onClick={() => setIsBulkEditing(true)}
+                                    className="px-3 py-1.5 text-[10px] font-bold text-derma-text hover:bg-white rounded-md transition-all uppercase tracking-wider"
+                                >
+                                    Edición masiva
+                                </button>
+                                <button
+                                    onClick={() => handleBulkStatusUpdate('ACTIVE')}
+                                    className="px-3 py-1.5 text-[10px] font-bold text-derma-blue hover:bg-derma-blue/10 rounded-md transition-all uppercase tracking-wider"
+                                >
+                                    Activer
+                                </button>
+                                <button
+                                    onClick={() => handleBulkStatusUpdate('DRAFT')}
+                                    className="px-3 py-1.5 text-[10px] font-bold text-derma-text-muted hover:text-derma-text rounded-md transition-all uppercase tracking-wider"
+                                >
+                                    Brouillon
+                                </button>
+                                <button
+                                    onClick={() => handleBulkStatusUpdate('ARCHIVED')}
+                                    className="px-3 py-1.5 text-[10px] font-bold text-derma-text-muted hover:text-derma-text rounded-md transition-all uppercase tracking-wider"
+                                >
+                                    Archiver
+                                </button>
                                 <button
                                     onClick={handleBulkDelete}
-                                    className="p-1.5 hover:bg-red-500 hover:text-white text-red-500 rounded-md transition-all"
+                                    className="p-1.5 hover:bg-red-500 hover:text-white text-red-500 rounded-md transition-all ml-2"
                                     title="Supprimer la selección"
                                 >
-                                    <Trash2 size={14} />
+                                    <Trash2 size={12} />
                                 </button>
                             </div>
                         )}
@@ -482,7 +597,7 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                                         <th className="px-6 py-4">{t('catalog_table_status')}</th>
                                         <th className="px-6 py-4 text-center">{t('catalog_table_inventory')}</th>
                                         <th className="px-6 py-4">{t('catalog_table_category')}</th>
-                                        <th className="px-6 py-4 text-right">{t('catalog_table_channels')}</th>
+                                        <th className="px-6 py-4 text-right">PRIX WEB</th>
                                     </>
                                 ) : mode === 'collections' ? (
                                     <>
@@ -548,8 +663,9 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                                 const available = inStock - committed;
 
                                 if (mode === 'all') {
+                                    const isEditingThis = isBulkEditing && selectedProducts.has(p.id);
                                     return (
-                                        <tr key={p.id} className="hover:bg-derma-bg/10 border-b border-derma-border group" onClick={() => setSelectedProductId(p.id)}>
+                                        <tr key={p.id} className={`hover:bg-derma-bg/10 border-b border-derma-border group ${isEditingThis ? 'bg-derma-blue/5' : ''}`} onClick={() => !isBulkEditing && setSelectedProductId(p.id)}>
                                             <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                                                 <input
                                                     type="checkbox"
@@ -570,23 +686,59 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest
-                                                        ${p.status === 'ACTIVE' ? 'bg-[#D1FAE5] text-[#059669]' :
-                                                        p.status === 'DRAFT' ? 'bg-[#F3F4F6] text-[#4B5563]' :
-                                                            'bg-[#FEE2E2] text-[#DC2626]'}`}>
-                                                    {p.status === 'ACTIVE' ? t('common_active') : p.status === 'ARCHIVED' ? t('common_archived') : t('common_draft')}
-                                                </span>
+                                                {isEditingThis ? (
+                                                    <select
+                                                        value={bulkEditChanges[p.id]?.status ?? p.status}
+                                                        onChange={(e) => setBulkEditChanges({ ...bulkEditChanges, [p.id]: { ...bulkEditChanges[p.id], status: e.target.value as any } })}
+                                                        className="px-2 py-1 bg-derma-bg border border-derma-border rounded text-[10px] font-bold uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-derma-blue/20"
+                                                    >
+                                                        <option value="ACTIVE">ACTIF</option>
+                                                        <option value="DRAFT">BROUILLON</option>
+                                                        <option value="ARCHIVED">ARCHIVÉ</option>
+                                                    </select>
+                                                ) : (
+                                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest
+                                                            ${p.status === 'ACTIVE' ? 'bg-[#D1FAE5] text-[#059669]' :
+                                                            p.status === 'DRAFT' ? 'bg-[#F3F4F6] text-[#4B5563]' :
+                                                                'bg-[#FEE2E2] text-[#DC2626]'}`}>
+                                                        {p.status === 'ACTIVE' ? t('common_active') : p.status === 'ARCHIVED' ? t('common_archived') : t('common_draft')}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <div className={`text-[12px] font-bold ${inStock > 0 ? 'text-[#DC2626]' : 'text-gray-400'}`}>
-                                                    {inStock} {t('common_in_stock')}
-                                                </div>
+                                                {isEditingThis ? (
+                                                    <input
+                                                        type="number"
+                                                        value={bulkEditChanges[p.id]?.stock_quantity ?? p.stock_quantity}
+                                                        onChange={(e) => setBulkEditChanges({ ...bulkEditChanges, [p.id]: { ...bulkEditChanges[p.id], stock_quantity: parseInt(e.target.value) } })}
+                                                        className="w-20 px-2 py-1 border border-derma-blue rounded text-[12px] font-bold text-center focus:outline-none focus:ring-2 focus:ring-derma-blue/20"
+                                                    />
+                                                ) : (
+                                                    <div className={`text-[12px] font-bold ${inStock > 0 ? 'text-[#059669]' : 'text-gray-400'}`}>
+                                                        {inStock} {t('common_in_stock')}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="text-[12px] text-gray-600 font-medium">{p.category}</div>
                                             </td>
-                                            <td className="px-6 py-4 text-right text-[12px] font-bold text-gray-700">
-                                                {p.channels || 6}
+                                            <td className="px-6 py-4 text-right">
+                                                {isEditingThis ? (
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <span className="text-[10px] text-gray-400">CHF</span>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={bulkEditChanges[p.id]?.retailPrice ?? p.retailPrice}
+                                                            onChange={(e) => setBulkEditChanges({ ...bulkEditChanges, [p.id]: { ...bulkEditChanges[p.id], retailPrice: parseFloat(e.target.value) } })}
+                                                            className="w-24 px-2 py-1 border border-derma-gold rounded text-[12px] font-bold text-right text-derma-gold focus:outline-none focus:ring-2 focus:ring-derma-gold/20"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-[12px] font-bold text-gray-700">
+                                                        CHF {p.retailPrice?.toLocaleString() || '---'}
+                                                    </div>
+                                                )}
                                             </td>
                                         </tr>
                                     );
@@ -595,10 +747,15 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                                 return (
                                     <tr
                                         key={p.id}
-                                        className="hover:bg-derma-bg/10 border-b border-derma-border group"
+                                        className={`hover:bg-derma-bg/10 border-b border-derma-border group ${isBulkEditing && selectedProducts.has(p.id) ? 'bg-derma-blue/5' : ''}`}
                                     >
                                         <td className="px-6 py-4">
-                                            <input type="checkbox" className="rounded border-gray-300" />
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-gray-300"
+                                                checked={selectedProducts.has(p.id)}
+                                                onChange={() => toggleProductSelection(p.id)}
+                                            />
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
@@ -618,20 +775,23 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                                             {committed}
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <input
-                                                type="number"
-                                                disabled
-                                                value={available}
-                                                className="w-20 px-2 py-1.5 border border-gray-200 rounded-lg text-center font-medium bg-gray-50 text-gray-500"
-                                            />
+                                            <div className="w-20 px-2 py-1.5 border border-gray-200 rounded-lg text-center font-medium bg-gray-50 text-gray-400 text-xs">
+                                                {available}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <input
-                                                type="number"
-                                                defaultValue={inStock}
-                                                onBlur={(e) => handleUpdateStock(p.id, parseInt(e.target.value))}
-                                                className="w-20 px-2 py-1.5 border border-gray-200 rounded-lg text-center font-medium focus:ring-2 focus:ring-derma-blue/20 transition-luxury"
-                                            />
+                                            {isBulkEditing && selectedProducts.has(p.id) ? (
+                                                <input
+                                                    type="number"
+                                                    value={bulkEditChanges[p.id]?.stock_quantity ?? p.stock_quantity}
+                                                    onChange={(e) => setBulkEditChanges({ ...bulkEditChanges, [p.id]: { ...bulkEditChanges[p.id], stock_quantity: parseInt(e.target.value) } })}
+                                                    className="w-20 px-2 py-1.5 border border-derma-blue rounded-lg text-center font-bold text-derma-blue focus:ring-2 focus:ring-derma-blue/20 transition-all"
+                                                />
+                                            ) : (
+                                                <div className="w-20 mx-auto text-center text-[12px] font-bold text-gray-700">
+                                                    {inStock}
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 );
@@ -942,6 +1102,34 @@ const AdminCatalog: React.FC<AdminCatalogProps> = ({ mode = 'all' }) => {
                     </div>
                 )
             }
+            {/* Bulk Editing Floating Save Bar */}
+            {isBulkEditing && (
+                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[300] bg-derma-text text-white px-8 py-4 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-8 animate-slide-up backdrop-blur-md bg-opacity-95">
+                    <div className="flex items-center gap-3 pr-8 border-r border-white/10">
+                        <div className="w-10 h-10 rounded-full bg-derma-gold flex items-center justify-center text-derma-black">
+                            <SlidersHorizontal size={18} />
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-black uppercase tracking-widest text-derma-gold">Modo Edición Activo</p>
+                            <p className="text-[10px] text-white/50">{Object.keys(bulkEditChanges).length} productos modificados</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => { setIsBulkEditing(false); setBulkEditChanges({}); }}
+                            className="px-6 py-2 text-[11px] font-black uppercase tracking-widest hover:text-derma-gold transition-colors"
+                        >
+                            Annuler
+                        </button>
+                        <button
+                            onClick={handleBulkSave}
+                            className="px-8 py-2 bg-derma-gold text-derma-black rounded-full text-[11px] font-black uppercase tracking-widest hover:shadow-xl hover:scale-105 transition-all"
+                        >
+                            Enregistrer tout
+                        </button>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };

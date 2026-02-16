@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { Language, User } from '../types';
-import { LayoutDashboard, ShoppingBag, GraduationCap, LogOut, Globe, UserCheck, ShieldCheck, EyeOff, Menu, ChevronLeft } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, GraduationCap, LogOut, Globe, UserCheck, ShieldCheck, EyeOff, Menu, ChevronLeft, History as HistoryIcon } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 interface LayoutProps {
@@ -101,6 +101,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate, user,
         <nav className={`flex-1 flex flex-col gap-1 ${isSidebarCollapsed ? 'px-2' : 'px-4'}`}>
           <NavItem id="dashboard" label={t('nav_dashboard')} icon={LayoutDashboard} />
           <NavItem id="order" label={t('nav_order')} icon={ShoppingBag} />
+          <NavItem id="orders" label="Commandes" icon={HistoryIcon} />
           <NavItem id="academy" label={t('nav_academy')} icon={GraduationCap} />
         </nav>
 

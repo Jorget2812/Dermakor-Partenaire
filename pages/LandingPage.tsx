@@ -92,7 +92,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin }) => {
             </div>
 
             <h1 className="font-oswald text-5xl md:text-7xl font-light uppercase leading-[1.1]">
-              Rejoignez les +40 instituts d'élite qui font confiance à <span className="text-derma-gold">KRX</span>
+              Rejoignez les instituts qui font confiance à <span className="text-derma-gold">KRX AESHETICS</span>
             </h1>
 
             <p className="text-lg text-gray-500 max-w-xl font-light leading-relaxed">

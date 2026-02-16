@@ -175,17 +175,22 @@ const Order: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const orderItems = Object.entries(quantities).map(([id, qty]) => {
-                const product = products.find(p => p.id === id);
-                return {
-                    productId: id,
-                    sku: product?.sku,
-                    name: product?.name,
-                    quantity: qty,
-                    price: calculateUserPrice(product!, userTier),
-                    rrp: product?.retailPrice || 0
-                };
-            });
+            const orderItems = Object.entries(quantities)
+                .filter(([id, qty]) => {
+                    const product = products.find(p => p.id === id);
+                    return product && qty > 0;
+                })
+                .map(([id, qty]) => {
+                    const product = products.find(p => p.id === id)!;
+                    return {
+                        productId: id,
+                        sku: product.sku,
+                        name: product.name,
+                        quantity: qty,
+                        price: calculateUserPrice(product, userTier),
+                        rrp: product.retailPrice || 0
+                    };
+                });
 
             const { error } = await supabase
                 .from('orders')
@@ -239,6 +244,13 @@ const Order: React.FC = () => {
             <header className="mb-12 pt-8">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
                     <div>
+                        <button
+                            onClick={() => navigate('/dashboard')}
+                            className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#6D7175] hover:text-derma-gold transition-colors mb-6 group"
+                        >
+                            <ChevronRight size={14} className="rotate-180 group-hover:-translate-x-1 transition-transform" />
+                            {t('common_back')}
+                        </button>
                         <div className="flex items-center gap-2 mb-2">
                             <span className="h-px w-8 bg-derma-gold"></span>
                             <span className="text-[10px] uppercase tracking-[0.3em] text-derma-gold font-bold">DermaKor Pro Engine</span>

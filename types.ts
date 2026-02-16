@@ -39,6 +39,7 @@ export interface User {
   academyAccessStatus?: 'ACTIVE' | 'INACTIVE';
   academyAccessType?: 'AUTOMATIC' | 'TEMPORARY' | 'PERMANENT';
   academyAccessUntil?: string;
+  address?: string;
   completedResources?: string[]; // Array of resource IDs
   certificates?: string[]; // Array of level names (e.g. "PREMIUM_PRO")
 }
@@ -156,15 +157,19 @@ export interface AdminOrderItem {
 
 export interface AdminOrder {
   id: string;
+  realId?: string;
+  partnerId?: string;
   date: string;
   partnerName: string;
   tier: UserTier;
   total: number;
-  status: 'PREPARATION' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+  status: 'PREPARATION' | 'PENDING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
   channel: string;
   paymentStatus: string;
   deliveryStatus: string;
   deliveryMethod: string;
+  trackingNumber?: string;
+  carrier?: string;
   tags: string[];
   itemsCount: number;
   items?: AdminOrderItem[]; // Optional for list view, required for detail view
@@ -305,6 +310,8 @@ export type TranslationKey =
   | 'common_archived'
   | 'common_draft'
   | 'common_in_stock'
+  | 'common_back'
+  | 'common_search'
   | 'common_no_results'
   | 'catalog_table_title'
   | 'catalog_table_conditions'
@@ -317,6 +324,7 @@ export type TranslationKey =
   | 'catalog_drawer_logistics'
   | 'catalog_drawer_physical_stock'
   | 'catalog_drawer_units'
+  | 'catalog_table_web_price'
   | 'catalog_drawer_edit_tech_sheet'
   | 'partners_status_pending'
   | 'partners_status_approved'

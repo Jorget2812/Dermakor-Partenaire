@@ -75,17 +75,29 @@ const RegistrationForm: React.FC = () => {
             const { error } = await supabase
                 .from('prospects')
                 .insert([{
-                    ...formData,
+                    company_name: formData.company_name,
+                    contact_name: formData.contact_name,
+                    contact_email: formData.email, // La base de datos usa contact_email
+                    phone: formData.phone,
+                    address: formData.address,
+                    city: formData.city,
+                    zip: formData.zip,
                     tier: selectedTier,
-                    status: 'pending'
+                    notes: formData.notes,
+                    status: 'NEW',
+                    source: 'WEB'
                 }]);
 
-            if (error) throw error;
+            if (error) {
+                console.error('Database Error:', error);
+                throw error;
+            }
 
             setShowSuccess(true);
         } catch (err: any) {
             console.error('Registration Error:', err);
-            alert('Une erreur est survenue lors de l\'envoi de votre demande. Veuillez réessayer.');
+            const errorMessage = err?.message || 'Une erreur inconnue';
+            alert(`Erreur de base de données: ${errorMessage}. Veuillez contacter le support.`);
         } finally {
             setIsLoading(false);
         }
