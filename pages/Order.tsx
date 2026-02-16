@@ -17,13 +17,28 @@ import {
     Percent,
     Calculator,
     Flame,
-    MousePointer2
+    MousePointer2,
+    X,
+    Boxes
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { STRATEGIC_PACKS } from '../constants';
+// import { STRATEGIC_PACKS } from '../constants';
+
+interface Bundle {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+    badge: string;
+    bundle_items: {
+        product_id: string;
+        quantity: number;
+        products?: Product;
+    }[];
+}
 
 const Order: React.FC = () => {
     const { t } = useLanguage();
@@ -35,8 +50,12 @@ const Order: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [quantities, setQuantities] = useState<Record<string, number>>({});
+    const [bundleQuantities, setBundleQuantities] = useState<Record<string, number>>({});
+    const [bundles, setBundles] = useState<Bundle[]>([]);
     const [submitted, setSubmitted] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+    const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
+    const [isBundleModalOpen, setIsBundleModalOpen] = useState(false);
 
     const fetchCategories = async () => {
         try {
@@ -86,9 +105,24 @@ const Order: React.FC = () => {
         }
     };
 
+    const fetchBundles = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('bundles')
+                .select('*, bundle_items(*, products(*))')
+                .eq('is_active', true);
+
+            if (error) throw error;
+            setBundles(data || []);
+        } catch (err) {
+            console.error('Error fetching bundles:', err);
+        }
+    };
+
     useEffect(() => {
         fetchProducts();
         fetchCategories();
+        fetchBundles();
     }, []);
 
     const userTier = user?.tier || UserTier.STANDARD;
@@ -105,22 +139,47 @@ const Order: React.FC = () => {
     };
 
     const calculateTotal = () => {
-        return Object.entries(quantities).reduce((total: number, [id, qty]) => {
+        const productsTotal = Object.entries(quantities).reduce((total: number, [id, qty]) => {
             const product = products.find(p => p.id === id);
             if (!product) return total;
-            const price = calculateUserPrice(product, userTier);
-            return total + (price * (qty as number));
+            return total + (calculateUserPrice(product, userTier) * qty);
         }, 0);
+
+        const bundlesTotal = Object.entries(bundleQuantities).reduce((total: number, [id, qty]) => {
+            const bundle = bundles.find(b => b.id === id);
+            if (!bundle) return total;
+            return total + (bundle.price * qty);
+        }, 0);
+
+        return productsTotal + bundlesTotal;
     };
 
     const total = calculateTotal();
 
-    const handleAddPack = (pack: any) => {
-        const newQuantities = { ...quantities };
-        pack.items.forEach((item: any) => {
-            newQuantities[item.productId] = (newQuantities[item.productId] || 0) + item.quantity;
+    const handleAddPack = (bundle: Bundle) => {
+        setBundleQuantities(prev => ({
+            ...prev,
+            [bundle.id]: (prev[bundle.id] || 0) + 1
+        }));
+        setIsBundleModalOpen(false);
+        setSelectedBundle(null);
+    };
+
+    const openBundleModal = (bundle: Bundle) => {
+        setSelectedBundle(bundle);
+        setIsBundleModalOpen(true);
+    };
+
+    const handleRemovePack = (bundleId: string) => {
+        setBundleQuantities(prev => {
+            const next = { ...prev };
+            if (next[bundleId] > 1) {
+                next[bundleId] -= 1;
+            } else {
+                delete next[bundleId];
+            }
+            return next;
         });
-        setQuantities(newQuantities);
     };
 
     const nextTierGoal = useMemo(() => {
@@ -150,6 +209,20 @@ const Order: React.FC = () => {
                 const rrp = product.retailPrice || 0; // Eliminado fallback 1.6
                 retail += rrp * qty;
                 profit += rrp > 0 ? (rrp - price) * qty : 0;
+            }
+        });
+
+        Object.entries(bundleQuantities).forEach(([id, qty]) => {
+            const bundle = bundles.find(b => b.id === id);
+            if (bundle && qty > 0) {
+                const bundlePrice = bundle.price;
+                let bundleRetail = 0;
+                bundle.bundle_items.forEach(item => {
+                    const rrp = item.products?.retailPrice || 0;
+                    bundleRetail += rrp * item.quantity;
+                });
+                retail += bundleRetail * qty;
+                profit += (bundleRetail - bundlePrice) * qty;
             }
         });
 
@@ -192,12 +265,34 @@ const Order: React.FC = () => {
                     };
                 });
 
+            const bundleItems = Object.entries(bundleQuantities)
+                .filter(([id, qty]) => {
+                    const bundle = bundles.find(b => b.id === id);
+                    return bundle && qty > 0;
+                })
+                .map(([id, qty]) => {
+                    const bundle = bundles.find(b => b.id === id)!;
+                    return {
+                        bundleId: id,
+                        name: bundle.name,
+                        quantity: qty,
+                        price: bundle.price,
+                        isBundle: true,
+                        items: bundle.bundle_items.map(bi => ({
+                            productId: bi.product_id,
+                            sku: bi.products?.sku,
+                            name: bi.products?.name,
+                            quantity: bi.quantity
+                        }))
+                    };
+                });
+
             const { error } = await supabase
                 .from('orders')
                 .insert([{
                     partner_id: user.id,
                     total_amount: total,
-                    items: orderItems,
+                    items: [...orderItems, ...bundleItems],
                     status: 'PREPARATION',
                     channel: 'Online Store',
                     payment_status: 'Pagado',
@@ -330,31 +425,53 @@ const Order: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {STRATEGIC_PACKS.map((pack) => (
-                        <motion.div
-                            key={pack.id}
-                            whileHover={{ y: -5 }}
-                            className="bg-white border border-derma-border p-8 rounded-sm shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col relative group"
-                        >
-                            <div className="absolute top-4 right-4 text-[9px] font-bold text-derma-gold bg-derma-gold/5 px-2 py-1 rounded tracking-widest border border-derma-gold/10">
-                                {pack.badge}
-                            </div>
-                            <h4 className="font-oswald text-lg text-derma-black mb-3">{pack.name}</h4>
-                            <p className="text-xs text-gray-400 mb-8 font-light leading-relaxed flex-1">
-                                {pack.description}
-                            </p>
-                            <div className="flex items-center justify-between mt-auto pt-6 border-t border-gray-50">
-                                <div className="font-oswald text-xl text-derma-black">CHF {pack.price}</div>
-                                <button
-                                    onClick={() => handleAddPack(pack)}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-derma-black text-white text-[10px] font-bold uppercase tracking-widest rounded hover:bg-derma-gold transition-colors"
-                                >
-                                    <MousePointer2 size={12} />
-                                    Ajouter
-                                </button>
-                            </div>
-                        </motion.div>
-                    ))}
+                    {bundles.map((bundle) => {
+                        const bundleQty = bundleQuantities[bundle.id] || 0;
+                        return (
+                            <motion.div
+                                key={bundle.id}
+                                whileHover={{ y: -5 }}
+                                className={`bg-white border p-8 rounded-sm shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col relative group ${bundleQty > 0 ? 'border-derma-gold' : 'border-derma-border'}`}
+                            >
+                                <div className="absolute top-4 right-4 text-[9px] font-bold text-derma-gold bg-derma-gold/5 px-2 py-1 rounded tracking-widest border border-derma-gold/10">
+                                    {bundle.badge}
+                                </div>
+                                <h4 className="font-oswald text-lg text-derma-black mb-3">{bundle.name}</h4>
+                                <p className="text-xs text-gray-400 mb-8 font-light leading-relaxed flex-1">
+                                    {bundle.description}
+                                </p>
+                                <div className="flex items-center justify-between mt-auto pt-6 border-t border-gray-50">
+                                    <div className="font-oswald text-xl text-derma-black">CHF {bundle.price}</div>
+
+                                    {bundleQty > 0 ? (
+                                        <div className="flex items-center gap-3 bg-derma-bg rounded p-1 border border-derma-border shadow-inner">
+                                            <button
+                                                onClick={() => handleRemovePack(bundle.id)}
+                                                className="w-8 h-8 flex items-center justify-center bg-white rounded text-derma-gold hover:bg-derma-gold hover:text-white transition-colors border border-derma-border shadow-sm"
+                                            >
+                                                -
+                                            </button>
+                                            <span className="text-sm font-mono font-bold w-4 text-center">{bundleQty}</span>
+                                            <button
+                                                onClick={() => handleAddPack(bundle)}
+                                                className="w-8 h-8 flex items-center justify-center bg-white rounded text-derma-gold hover:bg-derma-gold hover:text-white transition-colors border border-derma-border shadow-sm"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => openBundleModal(bundle)}
+                                            className="flex items-center gap-2 px-4 py-2.5 bg-derma-black text-white text-[10px] font-bold uppercase tracking-widest rounded hover:bg-derma-gold transition-colors"
+                                        >
+                                            <MousePointer2 size={12} />
+                                            Ajouter
+                                        </button>
+                                    )}
+                                </div>
+                            </motion.div>
+                        );
+                    })}
                 </div>
             </section>
 
@@ -571,6 +688,99 @@ const Order: React.FC = () => {
                     </div>
                 </div>
             </motion.div>
+
+            {/* BUNDLE DETAILS MODAL */}
+            <AnimatePresence>
+                {isBundleModalOpen && selectedBundle && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsBundleModalOpen(false)}
+                            className="absolute inset-0 bg-derma-black/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative bg-white rounded-sm shadow-2xl w-full max-w-lg overflow-hidden flex flex-col border border-derma-border"
+                        >
+                            {/* Modal Header */}
+                            <div className="px-8 py-6 border-b border-derma-border flex justify-between items-center bg-gray-50/50">
+                                <div>
+                                    <h2 className="font-oswald text-xl text-derma-black uppercase tracking-tight">
+                                        {selectedBundle.name}
+                                    </h2>
+                                    <div className="text-[10px] font-bold text-derma-gold uppercase tracking-widest mt-1">
+                                        {selectedBundle.badge}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setIsBundleModalOpen(false)}
+                                    className="p-2 hover:bg-white rounded-full transition-colors text-gray-400 hover:text-derma-black"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Modal Content */}
+                            <div className="px-8 py-8 overflow-y-auto custom-scrollbar flex-1 max-h-[60vh]">
+                                <p className="text-sm text-gray-500 font-light leading-relaxed mb-8 italic">
+                                    "{selectedBundle.description}"
+                                </p>
+
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 text-[10px] font-bold text-derma-black uppercase tracking-widest mb-2">
+                                        <Boxes size={14} className="text-derma-gold" />
+                                        Contenu du Pack
+                                    </div>
+                                    <div className="bg-gray-50 rounded-sm border border-derma-border divide-y divide-derma-border">
+                                        {selectedBundle.bundle_items?.map((item, idx) => (
+                                            <div key={idx} className="flex justify-between items-center p-4 text-xs">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-derma-black">{item.products?.name}</span>
+                                                    <span className="text-[10px] text-gray-400 uppercase tracking-tighter">{item.products?.sku}</span>
+                                                </div>
+                                                <div className="px-3 py-1 bg-white border border-derma-border rounded font-bold text-derma-gold">
+                                                    x{item.quantity}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="mt-10 pt-6 border-t border-derma-border flex justify-between items-end">
+                                    <div>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Prix Professionnel</span>
+                                        <span className="font-oswald text-3xl text-derma-black">CHF {selectedBundle.price}</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Économie Stratégique</span>
+                                        <span className="text-xs font-bold text-green-600 uppercase tracking-widest animate-pulse">Inclus dans ce Pack</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="px-8 py-6 bg-gray-50 border-t border-derma-border flex gap-4">
+                                <button
+                                    onClick={() => handleAddPack(selectedBundle)}
+                                    className="flex-1 py-4 bg-derma-black text-white text-[11px] font-bold uppercase tracking-[0.2em] rounded hover:bg-derma-gold transition-all shadow-lg hover:shadow-derma-gold/20 active:scale-[0.98]"
+                                >
+                                    Valider et Ajouter au Panier
+                                </button>
+                                <button
+                                    onClick={() => setIsBundleModalOpen(false)}
+                                    className="px-8 py-4 bg-white border border-derma-border text-gray-400 text-[11px] font-bold uppercase tracking-[0.2em] rounded hover:bg-gray-100 transition-all"
+                                >
+                                    Annuler
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

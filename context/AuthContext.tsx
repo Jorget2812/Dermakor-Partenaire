@@ -208,9 +208,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUser({
                 id: userId,
                 name: (email || 'Partner').split('@')[0],
-                instituteName: 'DermaKor Partner',
+                instituteName: isMasterAdmin ? 'DermaKor Swiss (HQ)' : 'DermaKor Partner',
                 email: email || 'partner@dermakor.ch',
-                role: 'PARTENAIRE',
+                role: isMasterAdmin ? 'ADMIN' : 'PARTENAIRE',
                 status: 'active',
                 tier: UserTier.STANDARD,
                 currentSpend: 0,

@@ -20,6 +20,7 @@ import AdminLayout from './components/AdminLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminPartners from './pages/AdminPartners';
 import AdminPricing from './pages/AdminPricing';
+import AdminBundles from './pages/AdminBundles';
 import AdminOrders from './pages/AdminOrders';
 import AdminCatalog from './pages/AdminCatalog';
 import AdminReports from './pages/AdminReports';
@@ -159,6 +160,7 @@ const AppContent: React.FC = () => {
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="products" element={<AdminCatalog mode="all" />} />
                 <Route path="collections" element={<AdminCatalog mode="collections" />} />
+                <Route path="bundles" element={<AdminBundles />} />
                 <Route path="inventory" element={<AdminCatalog mode="inventory" />} />
                 <Route path="catalog" element={<Navigate to="products" replace />} />
                 <Route path="pricing" element={<AdminPricing />} />

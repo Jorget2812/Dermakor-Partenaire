@@ -126,7 +126,7 @@ export interface AcademyResource {
 
 // --- ADMIN SPECIFIC TYPES ---
 
-export type AdminPage = 'dashboard' | 'partners' | 'orders' | 'products' | 'collections' | 'inventory' | 'pricing' | 'reports' | 'settings' | 'vision' | 'academy';
+export type AdminPage = 'dashboard' | 'partners' | 'orders' | 'products' | 'collections' | 'inventory' | 'pricing' | 'reports' | 'settings' | 'vision' | 'academy' | 'bundles';
 
 export interface Partner {
   id: string;
@@ -212,6 +212,7 @@ export type TranslationKey =
   | 'nav_dashboard'
   | 'nav_order'
   | 'nav_academy'
+  | 'nav_history'
   | 'nav_logout'
   | 'dash_welcome'
   | 'dash_tier_status'
@@ -271,6 +272,7 @@ export type TranslationKey =
   | 'admin_nav_strategy'
   | 'admin_logout'
   | 'admin_search_placeholder'
+  | 'admin_nav_bundles'
   // Admin Catalog
   | 'catalog_title'
   | 'catalog_search_placeholder'

@@ -13,7 +13,7 @@ import { UserTier } from '../types';
 import { supabase } from '../utils/supabase';
 
 const Login: React.FC = () => {
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
 
     // State
@@ -26,9 +26,10 @@ const Login: React.FC = () => {
     // Redirect if authenticated
     useEffect(() => {
         if (isAuthenticated) {
-            navigate('/dashboard');
+            const redirectPath = user?.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard';
+            navigate(redirectPath);
         }
-    }, [isAuthenticated, navigate]);
+    }, [isAuthenticated, user, navigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -68,7 +69,9 @@ const Login: React.FC = () => {
 
             if (masterAdmins.includes(userEmail)) {
                 console.log('Login: Master Admin detected. Bypassing profile checks.');
-                navigate('/dashboard');
+                localStorage.removeItem('derma_simulating_partner');
+                localStorage.removeItem('derma_simulated_tier');
+                navigate('/admin/dashboard');
                 return;
             }
 
@@ -97,14 +100,16 @@ const Login: React.FC = () => {
                     .maybeSingle();
 
                 if (adminData) {
-                    navigate('/dashboard');
+                    localStorage.removeItem('derma_simulating_partner');
+                    localStorage.removeItem('derma_simulated_tier');
+                    navigate('/admin/dashboard');
                     return;
                 }
 
                 // Fallback final: Si es un Master Admin pero no tiene perfil ni partner_user, le creamos acceso
                 if (masterAdmins.includes(userEmail)) {
                     console.log('Login: Master Admin access granted via fallback list');
-                    navigate('/dashboard');
+                    navigate('/admin/dashboard');
                     return;
                 }
 

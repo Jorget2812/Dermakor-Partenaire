@@ -147,7 +147,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavig
           <div className="space-y-1">
             <NavItem id="products" labelKey="admin_nav_products" icon={Package} />
             {!isSidebarCollapsed && (
-              <div className={`overflow-hidden transition-all duration-300 ${(activePage === 'products' || activePage === 'collections' || activePage === 'inventory') ? 'max-h-40' : 'max-h-0'}`}>
+              <div className={`overflow-hidden transition-all duration-300 ${(activePage === 'products' || activePage === 'collections' || activePage === 'inventory' || activePage === 'bundles') ? 'max-h-40' : 'max-h-0'}`}>
                 <button
                   onClick={() => onNavigate('products')}
                   className={`w-full flex items-center gap-3 pl-14 py-2.5 text-[12px] transition-luxury relative group
@@ -163,6 +163,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage, onNavig
                 >
                   <div className={`w-1.5 h-1.5 rounded-full ${activePage === 'collections' ? 'bg-derma-gold' : 'bg-transparent border border-derma-border'}`}></div>
                   <span>{t('admin_nav_collections')}</span>
+                </button>
+                <button
+                  onClick={() => onNavigate('bundles')}
+                  className={`w-full flex items-center gap-3 pl-14 py-2.5 text-[12px] transition-luxury relative group
+                    ${activePage === 'bundles' ? 'text-derma-blue font-bold' : 'text-derma-text-muted hover:text-derma-blue'}`}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full ${activePage === 'bundles' ? 'bg-derma-gold' : 'bg-transparent border border-derma-border'}`}></div>
+                  <span>{t('admin_nav_bundles')}</span>
                 </button>
                 <button
                   onClick={() => onNavigate('inventory')}

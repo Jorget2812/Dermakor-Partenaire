@@ -2,7 +2,24 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { Language, User } from '../types';
-import { LayoutDashboard, ShoppingBag, GraduationCap, LogOut, Globe, UserCheck, ShieldCheck, EyeOff, Menu, ChevronLeft, History as HistoryIcon } from 'lucide-react';
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  GraduationCap,
+  LogOut,
+  Globe,
+  UserCheck,
+  ShieldCheck,
+  EyeOff,
+  Menu,
+  ChevronLeft,
+  History as HistoryIcon,
+  LineChart,
+  Crown,
+  Target,
+  Calculator,
+  Lock
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 interface LayoutProps {
@@ -20,6 +37,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate, user,
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(() => {
     return localStorage.getItem('derma_sidebar_collapsed_user') === 'true';
   });
+
+  const isPremium = user?.tier && user.tier !== 'STANDARD';
 
   const handleExitSimulation = async () => {
     await toggleSimulation();
@@ -60,17 +79,32 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate, user,
     )
   }
 
-  const NavItem = ({ id, label, icon: Icon }: { id: string, label: string, icon: any }) => (
+  const NavItem = ({ id, label, icon: Icon, locked = false }: { id: string, label: string, icon: any, locked?: boolean }) => (
     <button
-      onClick={() => onNavigate(id)}
-      className={`w-full flex items-center gap-4 px-6 py-4 text-sm tracking-wide transition-all duration-300 border-l-2
+      onClick={() => !locked && onNavigate(id)}
+      disabled={locked}
+      className={`w-full flex items-center gap-4 px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all duration-300 border-l-2 group relative
         ${activePage === id
-          ? 'border-derma-gold bg-white text-derma-black font-medium shadow-sm'
-          : 'border-transparent text-gray-500 hover:text-derma-charcoal hover:bg-gray-50'}`}
+          ? 'border-derma-gold bg-gradient-to-r from-derma-gold/10 to-transparent text-derma-black shadow-sm'
+          : locked
+            ? 'border-transparent text-gray-300 cursor-not-allowed'
+            : 'border-transparent text-gray-400 hover:text-derma-gold hover:bg-gray-50'}`}
     >
-      <Icon size={18} strokeWidth={1.5} />
+      <div className="relative">
+        <Icon size={16} strokeWidth={1.5} className={activePage === id ? 'text-derma-gold' : locked ? 'text-gray-300' : ''} />
+        {locked && (
+          <div className="absolute -top-1 -right-1 bg-gray-100 rounded-full p-0.5 border border-white">
+            <Lock size={8} className="text-gray-400" />
+          </div>
+        )}
+      </div>
       {!isSidebarCollapsed && (
         <span className="animate-in fade-in slide-in-from-left-2 duration-300">{label}</span>
+      )}
+      {locked && !isSidebarCollapsed && (
+        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[8px] font-bold text-derma-gold border border-derma-gold/30 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-white">
+          PREMIUM
+        </span>
       )}
     </button>
   );
@@ -79,7 +113,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate, user,
     <div className="flex min-h-screen bg-white">
       {/* Sidebar */}
       <aside className={`bg-white border-r border-derma-border flex flex-col fixed h-full z-10 hidden md:flex transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-72'}`}>
-        <div className={`p-8 relative ${isSidebarCollapsed ? 'px-4 pb-8' : 'pb-12'}`}>
+        <div className={`p-8 relative ${isSidebarCollapsed ? 'px-4 pb-8' : 'pb-8'}`}>
           <button
             onClick={toggleSidebar}
             className="absolute -right-3 top-10 bg-white border border-derma-border rounded-full p-1 shadow-sm hover:text-derma-gold transition-colors z-30"
@@ -91,18 +125,42 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate, user,
             DERMAKOR <span className="text-derma-gold">{isSidebarCollapsed ? 'S' : 'SWISS'}</span>
           </h1>
           {!isSidebarCollapsed && (
-            <p className="text-[10px] uppercase tracking-[0.1em] text-derma-text-muted mt-2 font-black leading-tight">
+            <p className="text-[9px] uppercase tracking-[0.1em] text-derma-text-muted mt-2 font-black leading-tight">
               Distributeur Officiel & Exclusif <br />
               <span className="text-derma-gold">KRX Aesthetics</span>
             </p>
           )}
         </div>
 
+        {/* Section Header: Main Menu */}
+        {!isSidebarCollapsed && (
+          <div className="px-8 mb-2 mt-2">
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-300">Menu Principal</span>
+          </div>
+        )}
+
         <nav className={`flex-1 flex flex-col gap-1 ${isSidebarCollapsed ? 'px-2' : 'px-4'}`}>
-          <NavItem id="dashboard" label={t('nav_dashboard')} icon={LayoutDashboard} />
-          <NavItem id="order" label={t('nav_order')} icon={ShoppingBag} />
-          <NavItem id="orders" label="Commandes" icon={HistoryIcon} />
-          <NavItem id="academy" label={t('nav_academy')} icon={GraduationCap} />
+          <div className="mb-8 flex flex-col gap-1">
+            <NavItem id="dashboard" label="VUE D'ENSEMBLE" icon={LayoutDashboard} />
+            <NavItem id="order" label="COMMANDE PRO" icon={ShoppingBag} />
+            <NavItem id="orders" label="HISTORIQUE" icon={HistoryIcon} />
+            <NavItem id="academy" label="DERMAKOR ACADEMY" icon={GraduationCap} />
+          </div>
+
+          {!isSidebarCollapsed && (
+            <div className="px-4 mb-3 mt-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-derma-gold flex items-center gap-2">
+                PREMIUM INTELLIGENCE SUITE {isPremium && <Crown size={12} />}
+              </span>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1">
+            <NavItem id="revenue" label="Projection Revenus" icon={LineChart} locked={!isPremium} />
+            <NavItem id="ranking" label="Classement Partner" icon={Crown} locked={!isPremium} />
+            <NavItem id="trends" label="Tendances Marché" icon={Target} locked={!isPremium} />
+            <NavItem id="simulator" label="Simulateur Croissance" icon={Calculator} locked={!isPremium} />
+          </div>
         </nav>
 
         <div className={`p-6 border-t border-derma-border bg-derma-cream/30 transition-all duration-300 ${isSidebarCollapsed ? 'px-2' : ''}`}>

@@ -26,6 +26,15 @@ import { UserTier } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { motion } from 'framer-motion';
+import {
+    RevenueProjectionModule,
+    PartnerRankingModule,
+    StrategicAIModule,
+    MarketTrendsModule,
+    AdvancedSimulatorModule,
+    PartnerStatusModule,
+    EarlyAccessModule
+} from '../components/PremiumModules';
 
 const Dashboard: React.FC = () => {
     const { user } = useAuth();
@@ -102,6 +111,8 @@ const Dashboard: React.FC = () => {
         const retail = spend / (1 - margin);
         return { retail, profit: retail - spend };
     };
+
+    const isPremium = user?.tier && user.tier !== UserTier.STANDARD;
 
     if (isLoading) return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-derma-gold"></div></div>;
 
@@ -390,6 +401,48 @@ const Dashboard: React.FC = () => {
                             )}
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            {/* Premium Intelligence Suite */}
+            <div className="pt-8 border-t border-derma-border">
+                <div className="flex items-center gap-4 mb-8">
+                    <div className="p-3 bg-derma-black text-white rounded-sm shadow-lg">
+                        <Sparkles size={24} className="text-derma-gold" />
+                    </div>
+                    <div>
+                        <h2 className="font-oswald text-2xl text-derma-black uppercase tracking-widest">Premium Intelligence Suite</h2>
+                        <p className="text-sm text-derma-text-muted font-light mt-1">Outils stratégiques avancés pour partenaires Elite.</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
+                    {/* Row 1 */}
+                    <div className="lg:col-span-2 min-h-[320px]">
+                        <RevenueProjectionModule isPremium={!!isPremium} />
+                    </div>
+                    <div className="min-h-[320px]">
+                        <PartnerStatusModule isPremium={!!isPremium} />
+                    </div>
+
+                    {/* Row 2 */}
+                    <div className="min-h-[320px]">
+                        <PartnerRankingModule isPremium={!!isPremium} />
+                    </div>
+                    <div className="lg:col-span-2 min-h-[320px]">
+                        <AdvancedSimulatorModule isPremium={!!isPremium} />
+                    </div>
+
+                    {/* Row 3 */}
+                    <div className="min-h-[320px]">
+                        <MarketTrendsModule isPremium={!!isPremium} />
+                    </div>
+                    <div className="min-h-[320px]">
+                        <StrategicAIModule isPremium={!!isPremium} />
+                    </div>
+                    <div className="min-h-[320px]">
+                        <EarlyAccessModule isPremium={!!isPremium} />
+                    </div>
                 </div>
             </div>
         </div>
